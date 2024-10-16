@@ -1,11 +1,11 @@
-from django.urls import path
+from django.urls import include, path
 from . import views
+from rest_framework.routers import DefaultRouter
+router = DefaultRouter()
+router.register(r'bahias', views.BahiaViewSet, basename='bahia')
 urlpatterns = [
     path('cargar_codigos/', views.cargar_codigos, name='cargar_codigos'),
-    # path('barcos_recalando/', views.barcos_recalando, name='barcos_recalando'),
-    # path('barcos/<int:id>', views.barco, name='barco'),
-    # path('barcos/<int:id>/naves/', views.naves, name='naves'),
-    # path('barcos/<int:id>/naves/<int:nave_id>', views.nave, name='nave'),
-    # path('naves/', views.naves, name='naves'),
-    # path('naves/<int:id>', views.nave, name='nave'),
+    path('cargar_bahias/', views.view_cargar_bahias, name='cargar_bahias'),
+    path('', include(router.urls)),
+    
 ]

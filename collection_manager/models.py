@@ -31,15 +31,17 @@ class Region(models.Model):
         ordering = ['nombre']
 
 class Sector(models.Model):
-    nombre = models.CharField(max_length=255)
-    region = models.ForeignKey(Region, on_delete=models.CASCADE)
-
+    id = models.IntegerField(primary_key=True)
+    cd_reparticion = models.IntegerField(null=True)
+    nombre = models.CharField(max_length=255, null=True)
+    sitport_valor = models.CharField(max_length=255, null=True)
+    sitport_nom = models.CharField(max_length=255, null=True)
     history = HistoricalRecords()  
 
     def __str__(self):
-        return f"{self.nombre} ({self.codigo})"
+        return f"{self.nombre} ({self.id})"
     def __repr__(self):
-        return f"{self.nombre} ({self.codigo})"
+        return f"{self.nombre} ({self.id})"
     class Meta:
         verbose_name = "Sector"
         verbose_name_plural = "Sectores"

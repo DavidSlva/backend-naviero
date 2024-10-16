@@ -2,8 +2,13 @@ import numpy as np
 import pandas as pd
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
+from application.serializers import SectorSerializer
 from collection_manager.models import (Pais, Puerto, TipoOperacion, Aduana, TipoCarga, ViaTransporte, RegimenImportacion, 
-                     ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula)
+                     ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Sector)
+from collection_manager.services import obtener_bahias
+from rest_framework import viewsets
+from rest_framework import status
+from rest_framework.response import Response
 
 @api_view(['POST'])
 def cargar_codigos(request):
@@ -11,23 +16,23 @@ def cargar_codigos(request):
     data = pd.ExcelFile(file_path)
     print(f"Se encontraron las siguientes hojas: {data.sheet_names}")
 
-    # 1. Cargar Países
-    print("Cargando datos de Países...")
-    paises_df = pd.read_excel(data, 'Países', skiprows=4)
-    for _, row in paises_df.iterrows():
-        if pd.notna(row['COD_PAIS']):
-            try:
-                pais, created = Pais.objects.update_or_create(
-                    codigo=row['COD_PAIS'],
-                    defaults={
-                        'nombre': row['NOMBRE_PAIS'],
-                        'continente': row['NOMBRE_CONTINENTE']
-                    }
-                )
-                action = "creado" if created else "actualizado"
-                print(f"País {pais.nombre} ({pais.codigo}) {action}.")
-            except Exception as e:
-                print(f"Error al cargar país {row['NOMBRE_PAIS']}: {e}")
+    # # 1. Cargar Países
+    # print("Cargando datos de Países...")
+    # paises_df = pd.read_excel(data, 'Países', skiprows=4)
+    # for _, row in paises_df.iterrows():
+    #     if pd.notna(row['COD_PAIS']):
+    #         try:
+    #             pais, created = Pais.objects.update_or_create(
+    #                 codigo=row['COD_PAIS'],
+    #                 defaults={
+    #                     'nombre': row['NOMBRE_PAIS'],
+    #                     'continente': row['NOMBRE_CONTINENTE']
+    #                 }
+    #             )
+    #             action = "creado" if created else "actualizado"
+    #             print(f"País {pais.nombre} ({pais.codigo}) {action}.")
+    #         except Exception as e:
+    #             print(f"Error al cargar país {row['NOMBRE_PAIS']}: {e}")
 
     # 2. Cargar Puertos
     print("Cargando datos de Puertos...")
@@ -238,4 +243,59 @@ def cargar_codigos(request):
                 print(f"Error al cargar cláusula de compra venta {row['NOMBRE_CLAUSULA']}: {e}")
 
     return JsonResponse({'status': 'success', 'message': 'Datos cargados correctamente desde el archivo Excel.'})
+def view_cargar_bahias(request):
+    bahias = obtener_bahias()
+    for bahia in bahias:
+        Sector.objects.update_or_create(
+            id=bahia.get('IDBahia'),
+            defaults={
+                'cd_reparticion': bahia.get('CdReparticion'),
+                'nombre': bahia.get('NMBahia'),
+                'sitport_valor': bahia.get('Valor'),
+                'sitport_nom': bahia.get('Nom')
+            }
+        )
+        print('Sector cargado correctamente', bahia.get('NMBahia'))
+    return JsonResponse({'status': 'success', 'message': 'Datos cargados correctamente desde el archivo Excel.'})
 
+class BahiaViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para manejar las operaciones CRUD (GET, POST, PUT, DELETE) de las bahías.
+    """
+    queryset = Sector.objects.all()  # El modelo Sector representa las bahías
+    serializer_class = SectorSerializer
+
+    def list(self, request):
+        """Obtener todas las bahías."""
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        """Obtener una bahía específica."""
+        bahia = self.get_object()
+        serializer = self.get_serializer(bahia)
+        return Response(serializer.data)
+
+    def create(self, request):
+        """Crear una nueva bahía."""
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        """Actualizar una bahía existente."""
+        bahia = self.get_object()
+        serializer = self.get_serializer(bahia, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        """Eliminar una bahía."""
+        bahia = self.get_object()
+        bahia.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

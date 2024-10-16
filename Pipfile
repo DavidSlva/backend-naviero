@@ -11,6 +11,7 @@ django-simple-history = "*"
 pandas = "*"
 requests = "*"
 openpyxl = "*"
+bs4 = "*"
 
 [dev-packages]
 
