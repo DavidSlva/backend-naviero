@@ -1,3 +1,4 @@
+import os
 import requests
 import logging
 from bs4 import BeautifulSoup
@@ -184,7 +185,7 @@ def get_planificacion_san_antonio():
     
 #  Función para obtener el clima actual de una ciudad
 def get_current_weather(lat, lon):
-    api_key = "0c6725042528bb4984cdf3da84490b57"
+    api_key = os.getenv('OPEN_WEATHER_API_KEY')
     base_url = "https://api.openweathermap.org/data/3.0/onecall"
     url = f"{base_url}?lat={lat}&lon={lon}&appid={api_key}&units=metric"  # Temperaturas en Celsius
     response = requests.get(url)
