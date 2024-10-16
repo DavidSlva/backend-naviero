@@ -15,6 +15,7 @@ bs4 = "*"
 drf-spectacular = "*"
 lxml = "*"
 python-dotenv = "*"
+gunicorn = "*"
 
 [dev-packages]
 
