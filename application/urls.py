@@ -4,6 +4,7 @@ from .views import GetCurrentWaveView, GetCurrentWeatherView, GetSismosChileView
 
 urlpatterns = [
     path('puerto/naves/san_antonio/', PuertoSanAntonioView.as_view(), name='obtener_naves_san_antonio'),
+    path('restricciones/bahias/', ObtenerRestriccionesView.as_view(), name='obtener_restricciones de una bahia'),
     path('restricciones/bahias/<int:id_bahia>/', ObtenerRestriccionesView.as_view(), name='obtener_restricciones de una bahia'),
     path('naves/<int:id_nave>/', ObtenerNavesView.as_view(), name='obtener_nave'),
     path('naves/ubicacion/imo/<int:imo>/', UbicacionApiView.as_view(), name='obtener_ubicacion_nave'),

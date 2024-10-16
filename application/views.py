@@ -199,10 +199,12 @@ class ObtenerRestriccionesView(APIView):
     """
     Vista para obtener las restricciones de una bahía por su ID.
     """
-    def get(self, request, id_bahia, format=None):
+    def get(self, request, id_bahia=None, format=None):
         try:
+            if not id_bahia:
+                id_bahia = request.GET.get('id_bahia')
             # Intentar obtener la bahía
-            bahia = get_object_or_404(Sector, id=id_bahia)
+            bahia = Sector.objects.get(id=id_bahia)
             
             # Obtener las restricciones de la bahía
             restricciones = obtener_restricciones(bahia.id)
@@ -210,14 +212,18 @@ class ObtenerRestriccionesView(APIView):
             # Serializar la información de la bahía
             bahia_serializer = SectorSerializer(bahia)
             
-            # Retornar los datos de la bahía y las restricciones en formato JSON
             return Response({
                 'bahia': bahia_serializer.data,
                 'restricciones': restricciones
             }, status=status.HTTP_200_OK)
+        except Sector.DoesNotExist:
+            logger.error(f"Error al obtener restricciones para la bahía {id_bahia}: No se encontró la bahía.")
+            return Response(
+                {'status': 'error', 'message': 'No se encontró la bahía'},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
         except Exception as e:
-            # Registrar el error y retornar un mensaje genérico
             logger.error(f"Error al obtener restricciones para la bahía {id_bahia}: {e}")
             return Response(
                 {'status': 'error', 'message': 'Error al obtener los datos de la restricción.'},
