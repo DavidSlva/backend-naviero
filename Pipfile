@@ -12,6 +12,8 @@ pandas = "*"
 requests = "*"
 openpyxl = "*"
 bs4 = "*"
+drf-spectacular = "*"
+lxml = "*"
 
 [dev-packages]
 
