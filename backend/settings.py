@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'simple_history',
     'application',
     'drf_spectacular',
+    'interpreter'
 ]
 
 REST_FRAMEWORK = {

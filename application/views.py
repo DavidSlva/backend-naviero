@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from collection_manager.models import Sector, Puerto
-from application.services import get_current_wave, get_current_weather, get_planificacion_san_antonio, obtener_sismos_chile, obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando
+from application.services import consultar_datos_manifiesto, get_current_wave, get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data
 from application.services import obtener_restricciones
 from application.serializers import SectorSerializer, SismoSerializer, WaveSerializer
 from drf_spectacular.utils import extend_schema
@@ -36,6 +36,39 @@ class GetSismosChileView(APIView):
             logger.error(f"Error al obtener la información de los sismos chilenos: {e}")
             return Response(
                 {'status': 'error', 'message': 'Error al obtener la información de los sismos chilenos.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+class GetDatosManifiesto(APIView):
+    """
+    Vista para obtener la información de un manifiesto de embarque.
+    """
+    @extend_schema(
+        description="Obtiene la información de un manifiesto de embarque.",
+        parameters=[
+            OpenApiParameter(
+                name='programacion',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Código del programación.",
+                required=True
+            )
+        ],
+        responses={
+            200: OpenApiResponse(description="Datos del manifiesto de embarque."),
+            404: OpenApiResponse(description="No se encontró la información del manifiesto de embarque."),
+            500: OpenApiResponse(description="Error al obtener la información del manifiesto de embarque.")
+        }
+    )
+    def get(self, request, programacion, format=None):
+        try:            
+            # Retornar los datos de la nave en formato JSON
+            return Response(consultar_datos_manifiesto(programacion), status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            # Registrar el error y retornar un mensaje genérico
+            logger.error(f"Error al obtener la información del manifiesto de embarque: {e}")
+            return Response(
+                {'status': 'error', 'message': 'Error al obtener la información del manifiesto de embarque.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 class GetCurrentWaveView(APIView):
@@ -174,7 +207,26 @@ class UbicacionApiView(APIView):
                 {'status': 'error', 'message': 'Error al obtener la nave.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
+class ObtenerNaveView(APIView):
+    """
+    Vista para obtener la información de una nave por su nombre o IMO.
+    """
+    def get(self, request, nombre_nave, format=None):
+        try:
+            # Obtener la url de la nave
+            nave = obtener_datos_nave_por_nombre_o_imo(nombre_nave)
+            print(nave)
+            
+            # Retornar los datos de la nave en formato JSON
+            return Response(nave, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            # Registrar el error y retornar un mensaje genérico
+            logger.error(f"Error al obtener la nave {nombre_nave}: {e}")
+            return Response(
+                {'status': 'error', 'message': 'Error al obtener la nave.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 class ObtenerNavesView(APIView):
     """
     Vista para obtener la nave por su ID.
@@ -194,6 +246,7 @@ class ObtenerNavesView(APIView):
                 {'status': 'error', 'message': 'Error al obtener los datos de las naves.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
 
 class ObtenerRestriccionesView(APIView):
     """

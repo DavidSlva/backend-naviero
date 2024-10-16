@@ -88,8 +88,8 @@ class TipoOperacion(models.Model):
 class Aduana(models.Model):
     codigo = models.IntegerField(primary_key=True)
     nombre = models.CharField(max_length=255)
-    longitud = models.FloatField()
-    latitud = models.FloatField()
+    longitud = models.FloatField(null=True)
+    latitud = models.FloatField(null=True)
 
     def __str__(self):
         return f"{self.nombre} ({self.codigo})"
@@ -101,7 +101,7 @@ class Aduana(models.Model):
         ordering = ['nombre']
 
 class TipoCarga(models.Model):
-    codigo = models.CharField(max_length=50)
+    codigo = models.CharField(max_length=50, unique=True)
     nombre = models.CharField(max_length=255)
     descripcion = models.CharField(max_length=255)
     history = HistoricalRecords()  
