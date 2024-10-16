@@ -261,3 +261,153 @@ def obtener_sismos_chile():
     else:
         print(f"Error al obtener datos de sismos chilenos: {response.status_code}")
         return None
+
+
+def obtener_datos_nave(nombre_nave):
+    url = "https://maritimeoptima.com/public/vessels/search"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.6533.100 Safari/537.36",
+        "Accept-Language": "es-ES",
+        "Accept": "*/*",
+        # Añade más cabeceras si es necesario
+    }
+    
+    # Realiza la solicitud GET
+    response = requests.get(url, headers=headers, params={'q': nombre_nave})
+    if response.status_code == 200:
+        data = response.json()
+        # Filtrar el resultado más relevante
+        for item in data:
+            if nombre_nave.isdigit() and len(nombre_nave) == 7 and item['url'].split('imo:')[1].split('/')[0] == nombre_nave:
+                return {
+                    'IMO': item['url'].split('imo:')[1].split('/')[0],
+                    'nombre': item['name'],
+                    'url': item['url']
+                }
+
+
+        # Si no hay coincidencia exacta, buscar nombre parcial
+        for item in data:
+            if item['name'].lower() == nombre_nave.lower().replace('%', ' '):
+                return {
+                    'IMO': item['url'].split('imo:')[1].split('/')[0],
+                    'nombre': item['name'],
+                    'url': item['url']
+                }
+            if nombre_nave.lower() in item['name'].lower().replace('%', ' '):
+                return {
+                    'IMO': item['url'].split('imo:')[1].split('/')[0],
+                    'nombre': item['name'],
+                    'url': item['url']
+                }
+        
+        raise Exception(f"No se encontró el IMO para el nombre de la nave: {nombre_nave}")
+    else:
+        raise Exception(f"Error al obtener la información del IMO: {response.status_code}")
+def obtener_sesion_id():
+    url = "http://comext.aduana.cl:7001/ManifestacionMaritima/"
+    response = requests.get(url)
+    if response.status_code == 200:
+        # Obtener el nuevo JSESSIONID de las cookies
+        return response.cookies.get('JSESSIONID'), response.cookies.get('AWSALB')
+    else:
+        raise Exception(f"Error al obtener el JSESSIONID: {response.status_code}")
+    
+def consultar_datos_manifiesto(programacion):
+    url = f"http://comext.aduana.cl:7001/ManifestacionMaritima/limpiarListaProgramacionNaves2.do;jsessionid=K9YWPJ8AS1irScQd0rOn2+7j"
+    
+    headers = {
+        "Host": "comext.aduana.cl:7001",
+        "Content-Length": "36",
+        "Cache-Control": "max-age=0",
+        "Accept-Language": "es-ES",
+        "Upgrade-Insecure-Requests": "1",
+        "Origin": "http://comext.aduana.cl:7001",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.6533.100 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Referer": "http://comext.aduana.cl:7001/ManifestacionMaritima/",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive"
+    }
+    
+    cookies = {
+        "JSESSIONID": "K9YWPJ8AS1irScQd0rOn2+7j",
+        "AWSALB": "Mr+kOsI07FrQU7Rl0gg9g3tG5oYzcYHwEh5vj9wJGv5NTDFuWeT3dAuWvQO5Q+aKNuq+JsHW6oDbRZIqP6vPMfmgI7CD6HiVb9o7lnXTaQF49FM1qoMiVmHEIBawi2bJbRULcDS4shzuZF2kZ9kztZUc41z8mnx71SI2ba43+MJvg9xDLTULUIcd+fyJSw=="
+    }
+
+    # Los datos deben estar codificados en formato URL
+    data = "%7BactionForm.programacion%7D=" + str(programacion)
+
+    # Hacer la solicitud POST
+    response = requests.post(url, headers=headers, cookies=cookies, data=data)
+
+    # Verificar si la solicitud fue exitosa
+    if response.status_code == 200:
+        # Parsear el HTML
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Extraer los datos de la tabla (columna 1 a 11)
+        fila = soup.select_one('table[border="1"] > tr:nth-of-type(3)')
+        if fila:
+            datos = []
+            for i in range(1, 12):  # Extraer del td1 al td11
+                celda = fila.select_one(f'td:nth-of-type({i}) > label')
+                datos.append(celda.get_text(strip=True) if celda else "")
+            
+            # Crear un diccionario con los datos extraídos
+            resultado = {
+                "numero_programacion": datos[0],
+                "nombre_puerto": datos[1],
+                "nombre_nave": datos[2],
+                "numero_viaje": datos[3],
+                "nombre_agente": datos[4],
+                "fecha_arribo_zarpe_estimado": datos[5],
+                "fecha_registro_incorporacion": datos[6],
+                "fecha_arribo_zarpe_efectivo": datos[7],
+                "registro_arribo_zarpe_efectivo": datos[8],
+                "tipo": datos[9],
+                "estado": datos[10]
+            }
+            
+            return resultado
+        else:
+            raise Exception("No se encontró la fila de datos en el HTML.")
+    else:
+        raise Exception(f"Error en la solicitud: {response.status_code}")
+
+
+
+def obtener_datos_nave_por_nombre_o_imo(entrada):
+    # Intentar obtener la URL a partir del nombre o IMO
+    try:
+        # Si el valor es IMO, usarlo directamente
+        data = obtener_datos_nave(entrada)
+        
+        return scrape_nave_data(data['url'])
+    
+    except Exception as e:
+        raise Exception(f"Error: {str(e)}")
+
+def scrape_nave_data(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.6533.100 Safari/537.36",
+        "Accept-Language": "es-ES",
+        "Accept": "*/*",
+    }
+    htmlData = requests.get(url, headers=headers)
+    soup = BeautifulSoup(htmlData.text, 'html.parser')
+    
+    # Localizar la tabla con los datos
+    tabla = soup.select_one('body > div:nth-of-type(1) > div:nth-of-type(2) > section:nth-of-type(4) > table')
+    
+    # Extraer los datos
+    nave_data = {}
+    if tabla:
+        rows = tabla.find_all('tr')
+        for row in rows:
+            key = row.find('td').get_text(strip=True)
+            value = row.find_all('td')[1].get_text(strip=True)
+            nave_data[key] = value
+    
+    return nave_data

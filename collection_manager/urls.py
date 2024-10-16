@@ -18,6 +18,7 @@ router.register(r'clausulas', views.ClausulaViewSet, basename='clausula')
 
 urlpatterns = [
     path('cargar_codigos/', views.cargar_codigos, name='cargar_codigos'),
+    path('cargar_aduanas/', views.cargar_aduanas, name='cargar_aduanas'),   
     path('cargar_bahias/', views.view_cargar_bahias, name='cargar_bahias'),
     path('', include(router.urls)),
     

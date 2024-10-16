@@ -11,6 +11,29 @@ from rest_framework import viewsets
 from rest_framework import status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
+@api_view(['POST'])
+def cargar_aduanas(request):
+    file_path = 'collection_manager/data/tablas_de_codigos.xlsx'
+    data = pd.ExcelFile(file_path)
+        # 4. Cargar Aduanas
+    print("Cargando datos de Aduanas...")
+    aduanas_df = pd.read_excel(data, 'Aduanas', skiprows=3)
+    for _, row in aduanas_df.iterrows():
+        if pd.notna(row['COD_ADUANA_TRAMITACION']):
+            try:
+                aduana, created = Aduana.objects.update_or_create(
+                    codigo=row['COD_ADUANA_TRAMITACION'],
+                    defaults={
+                        'nombre': row['NOMBRE_ADUANA'],
+                        'latitud': row['LATITUD'] if 'LATITUD' in row else None,
+                        'longitud': row['LONGITUD'] if 'LONGITUD' in row else None
+                    }
+                )
+                action = "creado" if created else "actualizado"
+                print(f"Aduana {aduana.nombre} ({aduana.codigo}) {action}.")
+            except Exception as e:
+                print(f"Error al cargar aduana {row['NOMBRE_ADUANA']}: {e}")
+    return JsonResponse({'status': 'success', 'message': 'Datos cargados correctamente desde el archivo Excel.'})
 
 @api_view(['POST'])
 def cargar_codigos(request):

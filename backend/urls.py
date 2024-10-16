@@ -29,4 +29,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('collection_manager/', include('collection_manager.urls')),
     path('application/', include('application.urls')),
+    path('interpreter/', include('interpreter.urls')),
 ]
