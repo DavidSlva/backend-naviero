@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-2ce&7^@1ju!=pa+ls(uo1yo1*9nqdl4$88*qv@s73n3^m2^!63'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     'marineanalytics.liftlogic.cl',
