@@ -42,7 +42,19 @@ INSTALLED_APPS = [
     'collection_manager',
     'simple_history',
     'application',
+    'drf_spectacular',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Información Naviera',
+    'DESCRIPTION': 'API que permite obtener información naviera de todo tipo',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

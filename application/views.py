@@ -5,8 +5,11 @@ from django.shortcuts import get_object_or_404
 from collection_manager.models import Sector, Puerto
 from application.services import get_current_wave, get_current_weather, get_planificacion_san_antonio, obtener_sismos_chile, obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando
 from application.services import obtener_restricciones
-from application.serializers import SectorSerializer
+from application.serializers import SectorSerializer, SismoSerializer, WaveSerializer
+from drf_spectacular.utils import extend_schema
 import logging
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +17,12 @@ class GetSismosChileView(APIView):
     """
     Vista para obtener la información de los sismos chilenos.
     """
+    @extend_schema(
+        description="Obtiene la información de los sismos chilenos.",
+        responses={
+            200: SismoSerializer(many=True),
+        }
+    )
     def get(self, request, format=None):
         try:
             # Obtener la nave de la bahía
@@ -33,13 +42,29 @@ class GetCurrentWaveView(APIView):
     """
     Vista para obtener la información actual de oleaje de un puerto.
     """
+    @extend_schema(
+        description="Obtiene la información actual de oleaje de un puerto.",
+        parameters=[
+            OpenApiParameter(
+                name='codigo_puerto',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Código del puerto.",
+                required=True
+            )
+        ],
+        responses={
+            200: WaveSerializer(many=True),
+            404: OpenApiResponse(description="No se encontró la información del puerto."),
+            500: OpenApiResponse(description="Error al obtener la información del puerto.")
+        }
+    )
     def get(self, request, codigo_puerto, format=None):
         try:
             # Obtener la nave de la bahía
             puerto = Puerto.objects.get(codigo=codigo_puerto)
-            if(not puerto.latitud or not puerto.longitud):
+            if(puerto.latitud or not puerto.longitud or float(puerto.latitud) == 0 or float(puerto.longitud) == 0):
                 raise Exception("No se encontró la latitud y la longitud del puerto")
- 
             wave_data = get_current_wave(puerto.latitud, puerto.longitud)
             
             # Retornar los datos de la nave en formato JSON
@@ -49,7 +74,7 @@ class GetCurrentWaveView(APIView):
             logger.error(f"Error al obtener la información actual de oleaje de un puerto: {e}")
             return Response(
                 {'status': 'error', 'message': 'Error al obtener la información actual de oleaje de un puerto.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_404_NOT_FOUND
             )
         
         except Exception as e:

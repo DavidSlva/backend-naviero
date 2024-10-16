@@ -211,11 +211,19 @@ def get_current_wave(lat, lon):
         wave_periods = data['hourly']['wave_period']
 
         # Combinar los datos en un DataFrame
-        wave_data = list(zip(hours, wave_heights, wave_directions, wave_periods))
+        wave_data = [
+            {
+                'hour': hour,
+                'wave_height': wave_height,
+                'wave_direction': wave_direction,
+                'wave_period': wave_period
+            }
+            for hour, wave_height, wave_direction, wave_period in zip(hours, wave_heights, wave_directions, wave_periods)
+        ]
+
         return wave_data
     else:
-        print(f"Error al obtener datos de oleaje: {response.status_code}")
-
+        raise Exception(f"Error al obtener datos de oleaje: {response.status_code}")
 def obtener_sismos_chile():
     # URL de la página de sismología
     url = "https://www.sismologia.cl/"
@@ -243,7 +251,11 @@ def obtener_sismos_chile():
                 fecha_lugar = columns[0].get_text(strip=True).replace('\n', ' ')
                 profundidad = columns[1].get_text(strip=True)
                 magnitud = columns[2].get_text(strip=True)
-                data.append([fecha_lugar, profundidad, magnitud])
+                data.append({
+                    'fecha_ubicacion': fecha_lugar,
+                    'profundidad': profundidad,
+                    'magnitud': magnitud
+                })
         return data
     else:
         print(f"Error al obtener datos de sismos chilenos: {response.status_code}")
