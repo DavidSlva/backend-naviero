@@ -11,6 +11,7 @@ urlpatterns = [
     # path('puerto/<int:id_puerto>/naves/recalando/', PuertoNavesRecalandoView.as_view(), name='obtener_naves_recalando_puerto'),
     path('puerto/naves/recalando/', PuertoNavesRecalandoView.as_view(), name='obtener_naves_recalando_puerto'),
     path('puerto/<int:codigo_puerto>/clima/', GetCurrentWeatherView.as_view(), name='obtener_clima_puerto'),
+    # REVISAR
     path('puerto/<int:codigo_puerto>/oleaje/', GetCurrentWaveView.as_view(), name='obtener_oleaje_puerto'),
     path('sismologia/', GetSismosChileView.as_view(), name='obtener_sismos_chile'),
     path('nave/<str:nombre_nave>/', ObtenerNaveView.as_view(), name='obtener_nave por coincidencia'),
