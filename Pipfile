@@ -17,6 +17,7 @@ lxml = "*"
 python-dotenv = "*"
 gunicorn = "*"
 tqdm = "*"
+django-cors-headers = "*"
 
 [dev-packages]
 
