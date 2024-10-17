@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trazabilidad de Exportaciones</title>
+    <style>
+      :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --background-color: #ecf0f1;
+        --card-background: #ffffff;
+        --text-color: #333333;
+        --border-radius: 8px;
+        --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        color: var(--secondary-color);
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 2.5em;
+        margin-bottom: 30px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 30px;
+        background-color: var(--card-background);
+        padding: 20px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+      }
+
+      label {
+        font-weight: bold;
+        color: var(--secondary-color);
+      }
+
+      select,
+      input[type="text"] {
+        padding: 10px;
+        border-radius: var(--border-radius);
+        border: 1px solid #ccc;
+        font-size: 1em;
+        width: 200px;
+      }
+
+      button {
+        padding: 10px 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+
+      .iframe-container {
+        margin: 20px 0;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--box-shadow);
+      }
+
+      iframe {
+        width: 100%;
+        height: 600px;
+        border: none;
+      }
+
+      .section {
+        background-color: var(--card-background);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        margin-bottom: 30px;
+        box-shadow: var(--box-shadow);
+      }
+
+      .section h2 {
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 15px;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      #resultado,
+      #resultadoSismologia {
+        background-color: var(--card-background);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: var(--box-shadow);
+      }
+
+      .info-card {
+        background-color: #f8f9fa;
+        border-left: 4px solid var(--primary-color);
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 0 var(--border-radius) var(--border-radius) 0;
+      }
+
+      .info-card strong {
+        color: var(--secondary-color);
+      }
+
+      @media (max-width: 768px) {
+        form,
+        .button-row {
+          flex-direction: column;
+        }
+
+        select,
+        input[type="text"],
+        button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Trazabilidad de Exportaciones</h1>
+
+      <form id="form">
+        <div class="input-group">
+          <label for="selector1">Seleccione Origen:</label>
+          <select id="selector1"></select>
+        </div>
+        <div class="input-group">
+          <label for="selector2">Seleccione Destino:</label>
+          <select id="selector2"></select>
+        </div>
+        <button type="button" onclick="enviarDatosInfraestructura()">Ir</button>
+      </form>
+
+      <div class="iframe-container">
+        <iframe src="rutas_alternativas.html"></iframe>
+      </div>
+
+      <div class="section">
+        <h2>Metadata</h2>
+        <div class="input-group">
+          <label for="input3">Nombre Nave o OMI:</label>
+          <input type="text" id="input3" />
+          <div class="button-row">
+            <button type="button" onclick="obtenerNavePorNombreONumero()">
+              Mostrar información de una nave
+            </button>
+            <button type="button" onclick="UbicacionDeNave()">
+              Obtener ubicación de nave
+            </button>
+          </div>
+        </div>
+        <div class="input-group">
+          <label for="input4">Programación:</label>
+          <input type="text" id="input4" />
+          <div class="button-row">
+            <button type="button" onclick="obtenerInformacionProgramacion()">
+              Obtener información del manifiesto
+            </button>
+            <button type="button" onclick="obtenerNavesRecalando()">
+              Mostrar naves recalando
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Amenazas</h2>
+        <div class="input-group">
+          <label for="input6">Código puerto:</label>
+          <input type="text" id="input6" />
+          <div class="button-row">
+            <button type="button" onclick="ObtenerClimaPuerto()">
+              Obtener clima
+            </button>
+            <button type="button" onclick="obtenerOleaje()">
+              Obtener oleaje
+            </button>
+          </div>
+        </div>
+        <div class="input-group">
+          <label for="idBahia">ID de Bahía:</label>
+          <input type="text" id="idBahia" />
+          <div class="button-row">
+            <button
+              type="button"
+              onclick="obtenerRestriccionesBahia(document.getElementById('idBahia').value)"
+            >
+              Mostrar restricciones de la bahía
+            </button>
+            <button type="button" onclick="obtenerSismologia()">
+              Mostrar información de Sismología
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultado"></div>
+      <div id="resultadoSismologia"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+
+    <!-- Script principal -->
+    <script>
+      let opciones = [];
+
+      document.addEventListener("DOMContentLoaded", function () {
+        // Cargar los datos del archivo Excel
+        const filePath = "data/tablas_de_codigos.xlsx";
+        fetch(filePath)
+          .then((response) => response.arrayBuffer())
+          .then((data) => {
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            cargarOpciones(jsonData);
+          });
+      });
+
+      function cargarOpciones(data) {
+        const selector1 = document.getElementById("selector1");
+        const selector2 = document.getElementById("selector2");
+
+        opciones = data
+          .slice(1)
+          .map((row) => ({ id: row[0], valor: row[1] }))
+          .filter((row) => row.valor !== undefined);
+
+        opciones.forEach((opcion) => {
+          const option1 = document.createElement("option");
+          option1.value = opcion.id;
+          option1.text = opcion.valor;
+          selector1.appendChild(option1);
+
+          const option2 = document.createElement("option");
+          option2.value = opcion.id;
+          option2.text = opcion.valor;
+          selector2.appendChild(option2);
+        });
+      }
+
+      function ejecutarPython() {
+        const id1 = document.getElementById("selector1").value;
+        const id2 = document.getElementById("selector2").value;
+        const comando = `python main.py ${id1} ${id2}`;
+        console.log("Ejecutando comando:", comando);
+      }
+
+      async function enviarDatosInfraestructura() {
+        const iframe = document.querySelector(".iframe-container iframe");
+        const url =
+          "https://marineanalytics.liftlogic.cl/application/grafos/infraestructura/";
+        const id1 = document.getElementById("selector1").value;
+        const id2 = document.getElementById("selector2").value;
+        const data = {
+          puerto_origen: id1,
+          puerto_destino: id2,
+        };
+        console.log(id1, id2);
+
+        try {
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              Accept: "*/*",
+              "Content-Type": "application/json",
+              "X-CSRFTOKEN":
+                "mke65Nl3vYeVBFDBHLBhUiCHhAjCIlYaXHNRfP7NhViHdBbbOYvB40KFNsilMXQV",
+            },
+            body: JSON.stringify(data),
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al enviar los datos de infraestructura: ${response.status}`
+            );
+          }
+
+          const responseData = await response.json();
+          const rutaResultante = `https://marineanalytics.liftlogic.cl/static/${responseData.grafo_url}`;
+
+          // Redirige el iframe a la nueva URL
+          iframe.src = rutaResultante;
+        } catch (error) {
+          console.error("Error:", error);
+          const iframeDoc =
+            iframe.contentDocument || iframe.contentWindow.document;
+          iframeDoc.open();
+          iframeDoc.write(`
+                    <html>
+                    <head>
+                        <title>Error</title>
+                    </head>
+                    <body>
+                        <h3>Error al enviar los datos</h3>
+                        <p>${error.message}</p>
+                    </body>
+                    </html>
+                `);
+          iframeDoc.close();
+        }
+      }
+
+      async function obtenerRestriccionesBahia(id_bahia) {
+        const resultadoDiv = document.getElementById("resultado");
+        resultadoDiv.innerHTML = "<p>Cargando restricciones de la bahía...</p>";
+
+        const url = `https://marineanalytics.liftlogic.cl/application/restricciones/bahias/${id_bahia}/`;
+
+        try {
+          const response = await fetch(url, { method: "GET" });
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al obtener las restricciones de la bahía: ${response.status}`
+            );
+          }
+
+          const data = await response.json();
+          const bahiaInfo = data.bahia;
+          const restricciones = data.restricciones;
+
+          const restriccionesFiltradas = restricciones.filter(
+            (restriccion) => restriccion.bahia === parseInt(id_bahia)
+          );
+
+          if (restriccionesFiltradas.length === 0) {
+            resultadoDiv.innerHTML = `<p>No se encontraron restricciones para la bahía con ID ${id_bahia}.</p>`;
+            return;
+          }
+
+          let html = `<h3>Restricciones para la Bahía: ${bahiaInfo.nombre}</h3>`;
+          restriccionesFiltradas.forEach((restriccion) => {
+            html += `
+                        <div class="restriccion">
+                            <p><strong>Inicio:</strong> ${
+                              restriccion.FCinicio || "N/A"
+                            }</p>
+                            <p><strong>Término:</strong> ${
+                              restriccion.FCTermino || "Sin término"
+                            }</p>
+                            <p><strong>Tipo:</strong> ${
+                              restriccion.tipo || "No especificado"
+                            }</p>
+                            <p><strong>Nombre Instalación:</strong> ${
+                              restriccion.NombreInstalacion || "No disponible"
+                            }</p>
+                            <p><strong>Frente Atraque:</strong> ${
+                              restriccion.FrenteAtraque || "No disponible"
+                            }</p>
+                            <p><strong>Observación:</strong> ${
+                              restriccion.Observacion || "No disponible"
+                            }</p>
+                            <p><strong>Motivo Restricción:</strong> ${
+                              restriccion.MotivoRestriccion || "No disponible"
+                            }</p>
+                            <p><strong>Área de Restricción:</strong> ${
+                              restriccion.AreaRestriccion || "No especificada"
+                            }</p>
+                            <p><strong>Tipo Restricción:</strong> ${
+                              restriccion.tiporestriccion || "No disponible"
+                            }</p>
+                        </div>
+                        <hr>
+                    `;
+          });
+
+          resultadoDiv.innerHTML = html;
+        } catch (error) {
+          console.error("Error:", error);
+          resultadoDiv.innerHTML = `<p>Error al cargar las restricciones: ${error.message}</p>`;
+        }
+      }
+
+      async function obtenerNavesRecalando() {
+        const resultadoDiv = document.getElementById("resultado");
+        resultadoDiv.innerHTML = "<p>Cargando naves recalando...</p>";
+
+        try {
+          const response = await fetch(
+            "https://marineanalytics.liftlogic.cl/application/puerto/naves/recalando/",
+            { method: "GET" }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al obtener las naves recalando: ${response.status}`
+            );
+          }
+
+          const data = await response.json();
+
+          if (data.length === 0) {
+            resultadoDiv.innerHTML =
+              "<p>No se encontraron naves recalando.</p>";
+            return;
+          }
+
+          let html = "<h3>Naves Recalando</h3><ul>";
+          data.forEach((nave) => {
+            html += `
+                        <li>
+                            <div class="nave-info">
+                                <strong>Nombre: ${
+                                  nave.Nombre_2 || "Nombre no disponible"
+                                }</strong><br/>
+                                Tipo: ${nave.TipoNave || "N/A"}<br/>
+                                Bandera: ${nave.nombreBandera || "N/A"}<br/>
+                                Puerto: ${nave.nombrePuerto || "N/A"}<br/>
+                                Eslora: ${nave.dmEslora || "N/A"} metros<br/>
+                                TRG: ${nave.dmtrg || "N/A"} toneladas<br/>
+                                Fecha llegada: ${
+                                  new Date(nave.fecha).toLocaleString() || "N/A"
+                                }<br/>
+                                Fecha salida: ${
+                                  new Date(nave.fechafin).toLocaleString() ||
+                                  "N/A"
+                                }
+                            </div>
+                        </li>
+                    `;
+          });
+          html += "</ul>";
+
+          resultadoDiv.innerHTML = html;
+        } catch (error) {
+          console.error("Error:", error);
+          resultadoDiv.innerHTML = `<p>Error al cargar las naves recalando: ${error.message}</p>`;
+        }
+      }
+
+      async function obtenerInformacionProgramacion() {
+        const programacion = document.getElementById("input4").value;
+
+        if (!programacion) {
+          document.getElementById("resultado").innerHTML =
+            "<p>Por favor, ingrese la programación.</p>";
+          return;
+        }
+
+        const resultadoDiv = document.getElementById("resultado");
+        resultadoDiv.innerHTML =
+          "<p>Cargando información del manifiesto...</p>";
+
+        const url = `https://marineanalytics.liftlogic.cl/application/nave/manifiesto/${programacion}/`;
+
+        try {
+          const response = await fetch(url, { method: "GET" });
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al obtener la información del manifiesto: ${response.status}`
+            );
+          }
+
+          const data = await response.json();
+
+          resultadoDiv.innerHTML = `
+            <h3>Detalles del manifiesto para la programación: ${
+              data.numero_programacion
+            }</h3>
+            <p><strong>Puerto:</strong> ${
+              data.nombre_puerto || "No disponible"
+            }</p>
+            <p><strong>Nombre de la nave:</strong> ${
+              data.nombre_nave || "No disponible"
+            }</p>
+            <p><strong>Número de viaje:</strong> ${
+              data.numero_viaje || "No disponible"
+            }</p>
+            <p><strong>Agente:</strong> ${
+              data.nombre_agente || "No disponible"
+            }</p>
+            <p><strong>Fecha de arribo/zarpado estimado:</strong> ${
+              data.fecha_arribo_zarpe_estimado || "No disponible"
+            }</p>
+            <p><strong>Fecha de registro/incorporación:</strong> ${
+              data.fecha_registro_incorporacion || "No disponible"
+            }</p>
+            <p><strong>Fecha de arribo/zarpado efectivo:</strong> ${
+              data.fecha_arribo_zarpe_efectivo || "No disponible"
+            }</p>
+            <p><strong>Registro de arribo/zarpado efectivo:</strong> ${
+              data.registro_arribo_zarpe_efectivo || "No disponible"
+            }</p>
+            <p><strong>Tipo de operación:</strong> ${
+              data.tipo || "No disponible"
+            }</p>
+            <p><strong>Estado:</strong> ${data.estado || "No disponible"}</p>
+        `;
+        } catch (error) {
+          console.error("Error:", error);
+          resultadoDiv.innerHTML = `<p>Error al cargar la información del manifiesto: ${error.message}</p>`;
+        }
+      }
+
+      async function obtenerNavePorNombreONumero() {
+        const nombreONumero = document.getElementById("input3").value;
+
+        if (!nombreONumero) {
+          document.getElementById("resultado").innerHTML =
+            "<p>Por favor, ingrese el nombre de la nave o su número IMO.</p>";
+          return;
+        }
+
+        const resultadoDiv = document.getElementById("resultado");
+        resultadoDiv.innerHTML = "<p>Cargando información de la nave...</p>";
+
+        const url = `https://marineanalytics.liftlogic.cl/application/nave/${nombreONumero}/`;
+
+        try {
+          const response = await fetch(url, { method: "GET" });
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al obtener la información de la nave: ${response.status}`
+            );
+          }
+
+          const data = await response.json();
+
+          resultadoDiv.innerHTML = `
+            <h3>Detalles de la nave: ${nombreONumero}</h3>
+            <p><strong>Nombre de la nave:</strong> ${
+              data.Name || "No disponible"
+            }</p>
+            <p><strong>Tipo de nave:</strong> ${
+              data["Vessel type"] || "No disponible"
+            }</p>
+            <p><strong>IMO:</strong> ${data.IMO || "No disponible"}</p>
+            <p><strong>MMSI:</strong> ${data.MMSI || "No disponible"}</p>
+            <p><strong>Callsign:</strong> ${
+              data.Callsign || "No disponible"
+            }</p>
+            <p><strong>Bandera:</strong> ${data.Flag || "No disponible"}</p>
+            <p><strong>Año de construcción:</strong> ${
+              data["Year built"] || "No disponible"
+            }</p>
+            <p><strong>Eslora total (LOA):</strong> ${
+              data["Length overall (LOA)"] || "No disponible"
+            }</p>
+            <p><strong>Ancho (Beam):</strong> ${
+              data["Width (beam)"] || "No disponible"
+            }</p>
+        `;
+        } catch (error) {
+          console.error("Error:", error);
+          resultadoDiv.innerHTML = `<p>Error al cargar la información de la nave: ${error.message}</p>`;
+        }
+      }
+
+      async function UbicacionDeNave() {
+        const imo = document.getElementById("input3").value;
+
+        if (!imo) {
+          document.getElementById("resultado").innerHTML =
+            "<p>Por favor, ingrese el número IMO de la nave.</p>";
+          return;
+        }
+
+        const resultadoDiv = document.getElementById("resultado");
+        resultadoDiv.innerHTML =
+          "<p>Cargando información de la ubicación de la nave...</p>";
+
+        const url = `https://marineanalytics.liftlogic.cl/application/naves/ubicacion/imo/${imo}/`;
+
+        try {
+          const response = await fetch(url, { method: "GET" });
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al obtener la información de la ubicación de la nave: ${response.status}`
+            );
+          }
+
+          const data = await response.json();
+
+          resultadoDiv.innerHTML = `
+            <h3>Detalles de la ubicación de la nave con IMO: ${imo}</h3>
+            <p><strong>Nombre de la nave:</strong> ${
+              data.nombre_barco || "No disponible"
+            }</p>
+            <p><strong>Latitud:</strong> ${data.latitud || "No disponible"}</p>
+            <p><strong>Longitud:</strong> ${
+              data.longitud || "No disponible"
+            }</p>
+            <p><strong>Descripción:</strong> ${
+              data.description || "No disponible"
+            }</p>
+        `;
+        } catch (error) {
+          console.error("Error:", error);
+          resultadoDiv.innerHTML = `<p>Error al cargar la ubicación de la nave: ${error.message}</p>`;
+        }
+      }
+
+      async function ObtenerClimaPuerto() {
+        const codigoPuerto = document.getElementById("input6").value;
+
+        if (!codigoPuerto) {
+          document.getElementById("resultado").innerHTML =
+            "<p>Por favor, ingrese el código del puerto.</p>";
+          return;
+        }
+
+        const resultadoDiv = document.getElementById("resultado");
+        resultadoDiv.innerHTML = "<p>Cargando información del clima...</p>";
+
+        const url = `https://marineanalytics.liftlogic.cl/application/puerto/${codigoPuerto}/clima/`;
+
+        try {
+          const response = await fetch(url, { method: "GET" });
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al obtener la información del clima: ${response.status}`
+            );
+          }
+
+          const data = await response.json();
+          const climaHoy = data.current;
+
+          resultadoDiv.innerHTML = `
+                    <h3>Detalles del clima de hoy en el puerto con código: ${codigoPuerto}</h3>
+                    <p><strong>Temperatura actual:</strong> ${
+                      climaHoy.temp || "No disponible"
+                    }°C</p>
+                    <p><strong>Sensación térmica:</strong> ${
+                      climaHoy.feels_like || "No disponible"
+                    }°C</p>
+                    <p><strong>Humedad:</strong> ${
+                      climaHoy.humidity || "No disponible"
+                    }%</p>
+                    <p><strong>Presión atmosférica:</strong> ${
+                      climaHoy.pressure || "No disponible"
+                    } hPa</p>
+                    <p><strong>Velocidad del viento:</strong> ${
+                      climaHoy.wind_speed || "No disponible"
+                    } km/h</p>
+                    <p><strong>Dirección del viento:</strong> ${
+                      climaHoy.wind_deg || "No disponible"
+                    }°</p>
+                    <p><strong>Estado del clima:</strong> ${
+                      climaHoy.weather[0].description || "No disponible"
+                    }</p>
+                `;
+        } catch (error) {
+          console.error("Error:", error);
+          resultadoDiv.innerHTML = `<p>Error al cargar la información del clima: ${error.message}</p>`;
+        }
+      }
+
+      async function obtenerOleaje() {
+        const codigoPuerto = document.getElementById("input6").value;
+
+        if (!codigoPuerto) {
+          alert("Por favor ingresa un código de puerto válido.");
+          return;
+        }
+
+        const resultadoDiv = document.getElementById("resultado");
+        resultadoDiv.innerHTML = "<p>Cargando información del oleaje...</p>";
+
+        try {
+          const response = await fetch(
+            `https://marineanalytics.liftlogic.cl/application/puerto/${codigoPuerto}/oleaje/`,
+            { method: "GET" }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al obtener el oleaje del puerto: ${response.status}`
+            );
+          }
+
+          const data = await response.json();
+
+          if (data.length === 0) {
+            resultadoDiv.innerHTML =
+              "<p>No se encontró información de oleaje para este puerto.</p>";
+            return;
+          }
+
+          let html = "<h3>Oleaje en el puerto</h3><ul>";
+          data.forEach((oleaje) => {
+            html += `
+                        <li>
+                            <div class="oleaje-info">
+                                <strong>Hora: ${
+                                  oleaje.hour || "N/A"
+                                } hrs</strong><br/>
+                                Altura de ola: ${
+                                  oleaje.wave_height || "N/A"
+                                } metros<br/>
+                                Dirección de ola: ${
+                                  oleaje.wave_direction || "N/A"
+                                } grados<br/>
+                                Periodo de ola: ${
+                                  oleaje.wave_period || "N/A"
+                                } segundos<br/>
+                            </div>
+                        </li>
+                    `;
+          });
+          html += "</ul>";
+
+          resultadoDiv.innerHTML = html;
+        } catch (error) {
+          console.error("Error:", error);
+          resultadoDiv.innerHTML = `<p>Error al cargar la información del oleaje. ${error.message}</p>`;
+        }
+      }
+
+      async function obtenerSismologia() {
+        const resultadoDiv = document.getElementById("resultadoSismologia");
+        resultadoDiv.innerHTML = "<p>Cargando información de sismología...</p>";
+
+        try {
+          const response = await fetch(
+            "https://marineanalytics.liftlogic.cl/application/sismologia/",
+            { method: "GET" }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al obtener la información de sismología: ${response.status}`
+            );
+          }
+
+          const data = await response.json();
+
+          if (data.length === 0) {
+            resultadoDiv.innerHTML =
+              "<p>No se encontró información de sismología.</p>";
+            return;
+          }
+
+          let html = "<h3>Información de Sismología</h3><ul>";
+          data.forEach((sismo) => {
+            html += `
+                        <li>
+                            <div class="sismo-info">
+                                <strong>Fecha y Ubicación: ${
+                                  sismo.fecha_ubicacion || "N/A"
+                                }</strong><br/>
+                                Profundidad: ${
+                                  sismo.profundidad || "N/A"
+                                } km<br/>
+                                Magnitud: ${sismo.magnitud || "N/A"}
+                            </div>
+                        </li>
+                    `;
+          });
+          html += "</ul>";
+
+          resultadoDiv.innerHTML = html;
+        } catch (error) {
+          console.error("Error:", error);
+          resultadoDiv.innerHTML = `<p>Error al cargar la información de sismología: ${error.message}</p>`;
+        }
+      }
+    </script>
+  </body>
+</html>
