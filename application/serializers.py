@@ -23,3 +23,7 @@ class WaveSerializer(serializers.Serializer):
     wave_height = serializers.DecimalField(max_digits=3, decimal_places=1)
     wave_direction = serializers.IntegerField()
     wave_period = serializers.DecimalField(max_digits=3, decimal_places=1)
+
+class GrafoInfraestructuraSerializer(serializers.Serializer):
+    puerto_origen = serializers.IntegerField()
+    puerto_destino = serializers.IntegerField()

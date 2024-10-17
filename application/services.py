@@ -1,8 +1,14 @@
 import os
+import pandas as pd
 import requests
 import logging
 from bs4 import BeautifulSoup
 from lxml import html
+import networkx as nx
+from backend import settings
+from collection_manager.models import Puerto
+from interpreter.models import Registro
+import pickle
 
 
 # Configurar logger
@@ -16,7 +22,157 @@ class NoSeEncuentraInformacionError(Exception):
     """Excepción personalizada cuando no se encuentra la información solicitada."""
     pass
 
+def obtener_puertos():
+    """
+    Obtener todas las rutas de los archivos de importaciones y exportaciones disponibles.
+    """
+    # Obtener todos los registros de la base de datos
+    puertos = Puerto.objects.all()
+    # Crear una lista de diccionarios donde cada diccionario representa un registro completo
+    return puertos
 
+def construir_grafo():
+
+    grafo_path = os.path.join(settings.STATIC_ROOT, 'grafo_infraestructura.pkl')
+
+    # Comprobar si el archivo existe
+    if os.path.exists(grafo_path):
+        # Cargar el grafo desde el archivo
+        with open(grafo_path, 'rb') as f:
+            G = pickle.load(f)
+        print("Grafo cargado desde el archivo.")
+        return G
+
+    # Si el archivo no existe, crear un nuevo grafo
+    G = nx.Graph()
+
+    # Obtener solo los códigos de los puertos de embarque y desembarque en una sola consulta
+    registros = Registro.objects.values_list('puerto_embarque_id', 'puerto_desembarque_id')
+
+    # Obtener los puertos
+    puertos = obtener_puertos()  # Asumimos que retorna un queryset de puertos
+
+    # Añadir nodos (puertos) al grafo
+    G.add_nodes_from(set(puertos.values_list('codigo', flat=True)))
+
+    # Preparar las aristas, filtrando para que ni origen ni destino sean None o 0
+    edges = {
+        (puerto_origen, puerto_destino)
+        for puerto_origen, puerto_destino in registros
+        if puerto_origen and puerto_destino and puerto_origen != 0 and puerto_destino != 0
+    }
+
+    # Añadir todas las aristas filtradas al grafo en una sola operación
+    G.add_edges_from(edges)
+
+    # Almacenar atributos de los puertos en los nodos del grafo
+    atributos = {}
+    for puerto in puertos:
+        atributos[puerto.codigo] = {
+            'NOMBRE_PUERTO': puerto.nombre,
+            'PAIS': puerto.pais,
+            'LATITUD': puerto.latitud,
+            'LONGITUD': puerto.longitud
+        }
+    
+    nx.set_node_attributes(G, atributos)
+
+    # Guardar el grafo en un archivo
+    with open(grafo_path, 'wb') as f:
+        pickle.dump(G, f)
+    print("Grafo construido y guardado en el archivo.")
+
+    return G
+
+def inhabilitar_puerto(G, codigo_puerto):
+    """
+    Inhabilita un puerto en la base de datos.
+    """
+    G.remove_node(codigo_puerto)
+    return G
+
+def obtener_vecinos_puerto(G, codigo_puerto):
+    """
+    Obtiene los vecinos de un puerto en la base de datos.
+    """
+    if G.has_node(codigo_puerto):
+        vecinos = list(G.neighbors(codigo_puerto))
+        vecinos = [int(v) for v in vecinos]
+        return vecinos
+    else:
+        return []   
+    
+def visualizar_rutas_alternativas(G, puerto_origen, puertos_alternativos):
+    import folium
+    from folium.plugins import MarkerCluster
+    
+    centro_lat = -35.6751
+    centro_lon = -71.5430
+    m = folium.Map(location=[centro_lat, centro_lon], zoom_start=5)
+    marker_cluster = MarkerCluster().add_to(m)
+    
+    # Añadir puertos al mapa
+    for node in G.nodes():
+        lat = G.nodes[node].get('LATITUD')
+        lon = G.nodes[node].get('LONGITUD')
+        nombre_puerto = G.nodes[node].get('NOMBRE_PUERTO', '')
+        codigo_puerto = node
+        if pd.notna(lat) and pd.notna(lon):
+            if codigo_puerto == puerto_origen:
+                color = 'green'
+            elif codigo_puerto in [pa[0] for pa in puertos_alternativos]:
+                color = 'orange'
+            else:
+                color = 'blue'
+            folium.Marker(
+                location=[lat, lon],
+                popup=f"{nombre_puerto} ({codigo_puerto})",
+                icon=folium.Icon(color=color, icon='anchor', prefix='fa')
+            ).add_to(marker_cluster)
+
+    
+    for puerto_alternativo, camino in puertos_alternativos:
+        coordenadas_camino = []
+        for codigo_puerto in camino:
+            lat = G.nodes[codigo_puerto].get('LATITUD')
+            lon = G.nodes[codigo_puerto].get('LONGITUD')
+            if pd.notna(lat) and pd.notna(lon):
+                coordenadas_camino.append((lat, lon))
+        if coordenadas_camino:
+            folium.PolyLine(
+                locations=coordenadas_camino,
+                color='green',
+                weight=3,
+                opacity=0.8
+            ).add_to(m)
+    grafo_html_path = os.path.join(settings.STATIC_ROOT, 'grafo.html')
+
+    m.save(grafo_html_path)
+    return grafo_html_path   # Retornar el nombre del archivo HTML
+def generar_infraestructura(puerto_origen: Puerto, puerto_destino: Puerto):
+    """
+    Genera la infraestructura para un puerto cerrado
+    """
+    G = construir_grafo()
+    puerto_destino = puerto_destino.codigo
+    puerto_origen = puerto_origen.codigo
+    inhabilitar_puerto(G, puerto_destino)
+    vecinos_origen = obtener_vecinos_puerto(G, puerto_origen)
+    if puerto_destino in vecinos_origen:
+        vecinos_origen.remove(puerto_destino)
+
+    puertos_alternativos = []
+    for puerto_alternativo in vecinos_origen:
+        # Como son vecinos directos, la ruta es simplemente [puerto_origen, puerto_alternativo]
+        camino = [puerto_origen, puerto_alternativo]
+        puertos_alternativos.append((puerto_alternativo, camino))
+
+    
+    if puertos_alternativos:
+        html = visualizar_rutas_alternativas(G, puerto_origen, puertos_alternativos)
+        return html
+    
+    return None
 def obtener_restricciones(id_bahia):
     """
     Obtiene las restricciones para una bahía específica.

@@ -3,15 +3,58 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from collection_manager.models import Sector, Puerto
-from application.services import consultar_datos_manifiesto, get_current_wave, get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data
+from application.services import consultar_datos_manifiesto, generar_infraestructura, get_current_wave, get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data
 from application.services import obtener_restricciones
-from application.serializers import SectorSerializer, SismoSerializer, WaveSerializer
+from application.serializers import GrafoInfraestructuraSerializer, SectorSerializer, SismoSerializer, WaveSerializer
 from drf_spectacular.utils import extend_schema
 import logging
 from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiRequest
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse
 
 logger = logging.getLogger(__name__)
+
+class GetGrafoInfraestructuraView(APIView):
+    """
+    Vista para obtener la información de los grafos de infraestructura.
+    """
+    @extend_schema(
+        description="Obtiene la información de los grafos de infraestructura.",
+        methods=['POST'],
+        request=GrafoInfraestructuraSerializer, 
+        responses={
+            200: OpenApiResponse(description="Datos del grafo de infraestructura."),
+            404: OpenApiResponse(description="No se encontró la información del grafo de infraestructura."),
+            500: OpenApiResponse(description="Error al obtener la información del grafo de infraestructura.")
+        }
+    )
+    def post(self, request, format=None):
+        try:
+            body = request.data
+            body_puerto_origen = body.get('puerto_origen')
+            body_puerto_destino = body.get('puerto_destino')
+            if body_puerto_destino and body_puerto_origen:
+                puerto_origen = Puerto.objects.get(codigo=body_puerto_origen)
+                puerto_destino = Puerto.objects.get(codigo=body_puerto_destino)
+                grafo_url = generar_infraestructura(puerto_origen, puerto_destino)
+                # Retornar los datos de la nave en formato JSON
+                return Response({'grafo_url': grafo_url}, status=status.HTTP_200_OK)
+            else:
+                raise Exception("Faltan los parámetros 'puerto_origen' y 'puerto_destino' en el body")
+        except Puerto.DoesNotExist:
+            # Registrar el error y retornar un mensaje genérico
+            logger.error(f"Error al obtener la información de los grafos de infraestructura: {e}")
+            return Response(
+                {'status': 'error', 'message': 'Error al obtener la información de los grafos de infraestructura.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        except Exception as e:
+            # Registrar el error y retornar un mensaje genérico
+            logger.error(f"Error al obtener la información de los grafos de infraestructura: {e}")
+            return Response(
+                {'status': 'error', 'message': 'Error al obtener la información de los grafos de infraestructura.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class GetSismosChileView(APIView):
     """
