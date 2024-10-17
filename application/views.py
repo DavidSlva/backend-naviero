@@ -96,12 +96,20 @@ class GetCurrentWaveView(APIView):
         try:
             # Obtener la nave de la bahía
             puerto = Puerto.objects.get(codigo=codigo_puerto)
-            if(puerto.latitud or not puerto.longitud or float(puerto.latitud) == 0 or float(puerto.longitud) == 0):
+            if(not puerto.latitud or not puerto.longitud):
                 raise Exception("No se encontró la latitud y la longitud del puerto")
             wave_data = get_current_wave(puerto.latitud, puerto.longitud)
             
             # Retornar los datos de la nave en formato JSON
             return Response(wave_data, status=status.HTTP_200_OK)
+        except ValueError as e:
+            # Registrar el error y retornar un mensaje genérico
+            print(e)
+            logger.error(f"Error al obtener la información actual de oleaje de un puerto: {e}")
+            return Response(
+                {'status': 'error', 'message': 'Error al obtener la información actual de oleaje de un puerto. No existen las coordenadas del puerto'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Puerto.DoesNotExist:
             # Registrar el error y retornar un mensaje genérico
             logger.error(f"Error al obtener la información actual de oleaje de un puerto: {e}")
