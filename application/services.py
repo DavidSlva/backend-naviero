@@ -1,3 +1,4 @@
+import math
 import os
 import random
 import string
@@ -7,11 +8,12 @@ import logging
 from bs4 import BeautifulSoup
 from lxml import html
 import networkx as nx
+from application.models import Arista, Nodo
 from backend import settings
 from collection_manager.models import Puerto
 from interpreter.models import Registro
 import pickle
-
+from django.db import transaction
 
 # Configurar logger
 logger = logging.getLogger(__name__)
@@ -32,60 +34,95 @@ def obtener_puertos():
     puertos = Puerto.objects.all()
     # Crear una lista de diccionarios donde cada diccionario representa un registro completo
     return puertos
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    # Fórmula del haversine para calcular la distancia entre dos coordenadas geográficas
+    R = 6371  # Radio de la Tierra en km
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = (math.sin(delta_phi / 2) ** 2 +
+         math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c  # Retorna la distancia en kilómetros
 
 def construir_grafo():
+    # Si ya hay nodos y aristas en la base de datos, cargar el grafo desde allí
+    if Nodo.objects.exists() and Arista.objects.exists():
+        G = nx.Graph()
 
-    grafo_path = os.path.join(settings.STATIC_ROOT, 'grafo_infraestructura.pkl')
+        # Cargar nodos desde la base de datos
+        nodos = Nodo.objects.all()
+        for nodo in nodos:
+            G.add_node(nodo.codigo, nombre=nodo.nombre, pais=nodo.pais, latitud=nodo.latitud, longitud=nodo.longitud)
 
-    # Comprobar si el archivo existe
-    if os.path.exists(grafo_path):
-        # Cargar el grafo desde el archivo
-        with open(grafo_path, 'rb') as f:
-            G = pickle.load(f)
-        print("Grafo cargado desde el archivo.")
+        # Cargar aristas desde la base de datos
+        aristas = Arista.objects.all()
+        for arista in aristas:
+            G.add_edge(arista.origen.codigo, arista.destino.codigo, distancia=arista.distancia)
+
+        print("Grafo cargado desde la base de datos.")
         return G
 
-    # Si el archivo no existe, crear un nuevo grafo
+    # Si no existe el grafo en la base de datos, crear un nuevo grafo
     G = nx.Graph()
 
-    # Obtener solo los códigos de los puertos de embarque y desembarque en una sola consulta
+    # Obtener registros de puertos y sus conexiones
     registros = Registro.objects.values_list('puerto_embarque_id', 'puerto_desembarque_id')
 
     # Obtener los puertos
     puertos = obtener_puertos()  # Asumimos que retorna un queryset de puertos
 
-    # Añadir nodos (puertos) al grafo
-    G.add_nodes_from(set(puertos.values_list('codigo', flat=True)))
+    # Añadir nodos (puertos) al grafo y almacenar los nodos en una lista para batch insert
+    nodos_db = []
+    for puerto in puertos:
+        G.add_node(puerto.codigo, nombre=puerto.nombre, pais=puerto.pais, latitud=puerto.latitud, longitud=puerto.longitud)
+        
+        # Crear nodo en memoria
+        nodos_db.append(Nodo(
+            codigo=puerto.codigo,
+            nombre=puerto.nombre,
+            pais=puerto.pais,
+            latitud=puerto.latitud,
+            longitud=puerto.longitud
+        ))
 
-    # Preparar las aristas, filtrando para que ni origen ni destino sean None o 0
+    # Insertar todos los nodos a la base de datos en una sola operación
+    Nodo.objects.bulk_create(nodos_db, ignore_conflicts=True)  # `ignore_conflicts` ignora los duplicados
+
+    # Añadir aristas (conexiones entre puertos) al grafo y almacenar en una lista para batch insert
     edges = {
         (puerto_origen, puerto_destino)
         for puerto_origen, puerto_destino in registros
         if puerto_origen and puerto_destino and puerto_origen != 0 and puerto_destino != 0
     }
 
-    # Añadir todas las aristas filtradas al grafo en una sola operación
-    G.add_edges_from(edges)
+    aristas_db = []
+    for origen_codigo, destino_codigo in edges:
+        # Añadir la arista al grafo
+        G.add_edge(origen_codigo, destino_codigo)
+        
+        # Obtener nodos de origen y destino
+        nodo_origen = G.nodes[origen_codigo]
+        nodo_destino = G.nodes[destino_codigo]
 
-    # Almacenar atributos de los puertos en los nodos del grafo
-    atributos = {}
-    for puerto in puertos:
-        atributos[puerto.codigo] = {
-            'NOMBRE_PUERTO': puerto.nombre,
-            'PAIS': puerto.pais,
-            'LATITUD': puerto.latitud,
-            'LONGITUD': puerto.longitud
-        }
-    
-    nx.set_node_attributes(G, atributos)
+        # Calcular la distancia entre los nodos (usando latitud y longitud)
+        distancia = calcular_distancia(
+            nodo_origen['latitud'], nodo_origen['longitud'],
+            nodo_destino['latitud'], nodo_destino['longitud']
+        )
 
-    # Guardar el grafo en un archivo
-    with open(grafo_path, 'wb') as f:
-        pickle.dump(G, f)
-    print("Grafo construido y guardado en el archivo.")
+        # Crear la arista en memoria
+        aristas_db.append(Arista(
+            origen=Nodo.objects.get(codigo=origen_codigo),
+            destino=Nodo.objects.get(codigo=destino_codigo),
+            distancia=distancia
+        ))
 
+    # Insertar todas las aristas a la base de datos en una sola operación
+    Arista.objects.bulk_create(aristas_db, ignore_conflicts=True)
+
+    print("Grafo construido y guardado en la base de datos.")
     return G
-
 def inhabilitar_puerto(G, codigo_puerto):
     """
     Inhabilita un puerto en la base de datos.

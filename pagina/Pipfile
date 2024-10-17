@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pandas = "*"
+openpyxl = "*"
+geopy = "*"
+folium = "*"
+networkx = "*"
+matplotlib = "*"
+pyunpack = "*"
+patool = "*"
+requests = "*"
+lxml = "*"
+rarfile = "*"
+tqdm = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
