@@ -1,4 +1,6 @@
 import os
+import random
+import string
 import pandas as pd
 import requests
 import logging
@@ -145,10 +147,12 @@ def visualizar_rutas_alternativas(G, puerto_origen, puertos_alternativos):
                 weight=3,
                 opacity=0.8
             ).add_to(m)
-    grafo_html_path = os.path.join(settings.STATIC_ROOT, 'grafo.html')
+    # Generar nombre aleatorio
+    random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    grafo_html_path = os.path.join(settings.STATIC_ROOT,f'{random_string}.html')
 
     m.save(grafo_html_path)
-    return grafo_html_path   # Retornar el nombre del archivo HTML
+    return random_string + '.html'   # Retornar el nombre del archivo HTML
 def generar_infraestructura(puerto_origen: Puerto, puerto_destino: Puerto):
     """
     Genera la infraestructura para un puerto cerrado
