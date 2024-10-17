@@ -19,6 +19,7 @@ gunicorn = "*"
 tqdm = "*"
 django-cors-headers = "*"
 networkx = "*"
+folium = "*"
 
 [dev-packages]
 
