@@ -224,6 +224,7 @@ def get_current_wave(lat, lon):
 
         return wave_data
     else:
+        print(f"Error al obtener datos de oleaje: {response}")
         raise Exception(f"Error al obtener datos de oleaje: {response.status_code}")
 def obtener_sismos_chile():
     # URL de la página de sismología
