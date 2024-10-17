@@ -36,9 +36,9 @@ class GetGrafoInfraestructuraView(APIView):
             if body_puerto_destino and body_puerto_origen:
                 puerto_origen = Puerto.objects.get(codigo=body_puerto_origen)
                 puerto_destino = Puerto.objects.get(codigo=body_puerto_destino)
-                grafo_url = generar_infraestructura(puerto_origen, puerto_destino)
+                grafo_name = generar_infraestructura(puerto_origen, puerto_destino)
                 # !Revisar 
-                return Response({'grafo_url': 'grafo.html'}, status=status.HTTP_200_OK)
+                return Response({'grafo_url': grafo_name}, status=status.HTTP_200_OK)
             else:
                 raise Exception("Faltan los parámetros 'puerto_origen' y 'puerto_destino' en el body")
         except Puerto.DoesNotExist:
