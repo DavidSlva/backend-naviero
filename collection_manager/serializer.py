@@ -3,6 +3,8 @@ from rest_framework import serializers
 
 from collection_manager.models import Pais, Puerto, TipoOperacion, Aduana, TipoCarga, ViaTransporte, RegimenImportacion, \
                      ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Sector
+import math
+
 
 class PaisSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,6 +15,15 @@ class PuertoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Puerto
         fields = ['codigo', 'nombre', 'tipo', 'pais', 'latitud', 'longitud', 'zona_geografica']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if 'latitud' in representation and isinstance(representation['latitud'], float) and math.isnan(representation['latitud']):
+            representation['latitud'] = None
+        if 'longitud' in representation and isinstance(representation['longitud'], float) and math.isnan(representation['longitud']):
+            representation['longitud'] = None
+        return representation
+
 
 class TipoOperacionSerializer(serializers.ModelSerializer):
     class Meta:
