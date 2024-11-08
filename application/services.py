@@ -14,7 +14,9 @@ from collection_manager.models import Puerto
 from interpreter.models import Registro
 import pickle
 from django.db import transaction
-
+import folium
+from folium.plugins import MarkerCluster
+import searoute as sr
 # Configurar logger
 logger = logging.getLogger(__name__)
 
@@ -146,57 +148,87 @@ def obtener_vecinos_puerto(G, codigo_puerto):
         return []   
     
 def visualizar_rutas_alternativas(G, puerto_origen, puertos_alternativos):
-    import folium
-    from folium.plugins import MarkerCluster
-    
-    centro_lat = -35.6751
-    centro_lon = -71.5430
-    m = folium.Map(location=[centro_lat, centro_lon], zoom_start=5)
-    marker_cluster = MarkerCluster().add_to(m)
-    
-    # Añadir puertos al mapa
-    for node in G.nodes():
-        lat = G.nodes[node].get('latitud')
-        lon = G.nodes[node].get('longitud')
-        nombre_puerto = G.nodes[node].get('nombre', '')
-        codigo_puerto = node
-        if pd.notna(lat) and pd.notna(lon):
-            if codigo_puerto == puerto_origen:
-                color = 'green'
-            elif codigo_puerto in [pa[0] for pa in puertos_alternativos]:
-                color = 'orange'
-            else:
-                color = 'blue'
-            folium.Marker(
-                location=[lat, lon],
-                popup=f"{nombre_puerto} ({codigo_puerto})",
-                icon=folium.Icon(color=color, icon='anchor', prefix='fa')
-            ).add_to(marker_cluster)
+    # Función para extraer coordenadas de la ruta
+    def extract_route_coordinates(route):
+        coordinates = []
+        if not route:
+            print("La ruta es None o está vacía.")
+            return coordinates
 
-    
-    for puerto_alternativo, camino in puertos_alternativos:
-        coordenadas_camino = []
-        try:
-            for codigo_puerto in camino :
-                lat = G.nodes[str(codigo_puerto)].get('latitud')
-                lon = G.nodes[str(codigo_puerto)].get('longitud')
-                if pd.notna(lat) and pd.notna(lon) :
-                    coordenadas_camino.append((lat, lon))
-            if coordenadas_camino :
-                folium.PolyLine(
-                    locations=coordenadas_camino,
-                    color='green',
-                    weight=3,
-                    opacity=0.8
-                ).add_to(m)
-        except Exception as e:
-            print(f"Error al agregar camino de puertos: {e}")
-    # Generar nombre aleatorio
-    random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    grafo_html_path = os.path.join(settings.STATIC_ROOT,f'{random_string}.html')
+        if 'geometry' in route and 'coordinates' in route['geometry']:
+            coords = route['geometry']['coordinates']
+            for point in coords:
+                coordinates.append([point[1], point[0]])  # Invertir el orden para obtener [latitud, longitud]
+        else:
+            print("La estructura de la ruta no es la esperada.")
+        return coordinates
 
-    m.save(grafo_html_path)
-    return random_string + '.html'   # Retornar el nombre del archivo HTML
+    try:
+        # Crear el mapa centrado en Chile
+        centro_lat = -35.6751
+        centro_lon = -71.5430
+        m = folium.Map(location=[centro_lat, centro_lon], zoom_start=5)
+        marker_cluster = MarkerCluster().add_to(m)
+
+        # Añadir puertos al mapa
+        for node in G.nodes():
+            try:
+                lat = G.nodes[node].get('latitud')
+                lon = G.nodes[node].get('longitud')
+                nombre_puerto = G.nodes[node].get('nombre', '')
+                codigo_puerto = node
+                if pd.notna(lat) and pd.notna(lon):
+                    color = 'green' if codigo_puerto == puerto_origen else 'orange' if codigo_puerto in [pa[0] for pa in puertos_alternativos] else 'blue'
+                    folium.Marker(
+                        location=[lat, lon],
+                        popup=f"{nombre_puerto} ({codigo_puerto})",
+                        icon=folium.Icon(color=color, icon='anchor', prefix='fa')
+                    ).add_to(marker_cluster)
+            except Exception as e:
+                print(f"Error al añadir el puerto {node}: {e}")
+
+        # Calcular y añadir rutas al mapa
+        for puerto_alternativo, _ in puertos_alternativos:
+            try:
+                origin = [G.nodes[str(puerto_origen)]['longitud'], G.nodes[str(puerto_origen)]['latitud']]
+                destination = [G.nodes[str(puerto_alternativo)]['longitud'], G.nodes[str(puerto_alternativo)]['latitud']]
+                print(f'Calculando ruta de {origin} a {destination}')
+
+                # Calcular la ruta marítima
+                route = sr.searoute(
+                    origin,
+                    destination,
+                    append_orig_dest=True,
+                    restrictions=['northwest'],
+                    include_ports=True,
+                    port_params={'only_terminals': True}
+                )
+
+                route_coords = extract_route_coordinates(route)
+
+                # Añadir la ruta al mapa
+                if route_coords:
+                    folium.PolyLine(
+                        locations=route_coords,
+                        color='green',
+                        weight=3,
+                        opacity=0.8
+                    ).add_to(m)
+                else:
+                    print(f"No se pudieron extraer las coordenadas de la ruta entre {puerto_origen} y {puerto_alternativo}")
+            except Exception as e:
+                print(f"Ocurrió un error al procesar la ruta entre {puerto_origen} y {puerto_alternativo}: {e}")
+
+        # Guardar el mapa en un archivo HTML con un nombre aleatorio
+        random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        grafo_html_path = f'{random_string}.html'
+        m.save(grafo_html_path)
+        print(f"Mapa guardado en '{grafo_html_path}'")
+        return grafo_html_path
+
+    except Exception as e:
+        print(f"Ocurrió un error general en la función: {e}")
+        return None
 def generar_infraestructura(puerto_origen: Puerto, puerto_destino: Puerto):
     """
     Genera la infraestructura para un puerto cerrado
