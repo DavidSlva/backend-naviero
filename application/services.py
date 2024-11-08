@@ -14,7 +14,9 @@ from collection_manager.models import Puerto
 from interpreter.models import Registro
 import pickle
 from django.db import transaction
-
+import folium
+from folium.plugins import MarkerCluster
+import searoute as sr
 # Configurar logger
 logger = logging.getLogger(__name__)
 
@@ -45,8 +47,17 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c  # Retorna la distancia en kilómetros
 
+GRAFO_FILE_PATH = 'grafo.pickle'  # Define la ruta donde guardarás el archivo del grafo
+
 def construir_grafo():
-    # Si ya hay nodos y aristas en la base de datos, cargar el grafo desde allí
+    # Verificar si el archivo del grafo existe
+    if os.path.exists(GRAFO_FILE_PATH):
+        with open(GRAFO_FILE_PATH, 'rb') as f:
+            G = pickle.load(f)
+        print("Grafo cargado desde el archivo.")
+        return G
+
+    # Si no hay archivo, construimos el grafo desde la base de datos o desde cero
     if Nodo.objects.exists() and Arista.objects.exists():
         G = nx.Graph()
 
@@ -61,67 +72,62 @@ def construir_grafo():
             G.add_edge(arista.origen.codigo, arista.destino.codigo, distancia=arista.distancia)
 
         print("Grafo cargado desde la base de datos.")
-        return G
+    else:
+        # Si no existe el grafo en la base de datos, crear un nuevo grafo
+        G = nx.Graph()
 
-    # Si no existe el grafo en la base de datos, crear un nuevo grafo
-    G = nx.Graph()
+        # Obtener registros de puertos y sus conexiones
+        registros = Registro.objects.values_list('puerto_embarque_id', 'puerto_desembarque_id')
 
-    # Obtener registros de puertos y sus conexiones
-    registros = Registro.objects.values_list('puerto_embarque_id', 'puerto_desembarque_id')
+        # Obtener los puertos
+        puertos = obtener_puertos()  # Asumimos que retorna un queryset de puertos
 
-    # Obtener los puertos
-    puertos = obtener_puertos()  # Asumimos que retorna un queryset de puertos
+        # Añadir nodos (puertos) al grafo y almacenar los nodos en una lista para batch insert
+        nodos_db = []
+        for puerto in puertos:
+            G.add_node(puerto.codigo, nombre=puerto.nombre, pais=puerto.pais, latitud=puerto.latitud, longitud=puerto.longitud)
+            nodos_db.append(Nodo(
+                codigo=puerto.codigo,
+                nombre=puerto.nombre,
+                pais=puerto.pais,
+                latitud=puerto.latitud,
+                longitud=puerto.longitud
+            ))
 
-    # Añadir nodos (puertos) al grafo y almacenar los nodos en una lista para batch insert
-    nodos_db = []
-    for puerto in puertos:
-        G.add_node(puerto.codigo, nombre=puerto.nombre, pais=puerto.pais, latitud=puerto.latitud, longitud=puerto.longitud)
-        
-        # Crear nodo en memoria
-        nodos_db.append(Nodo(
-            codigo=puerto.codigo,
-            nombre=puerto.nombre,
-            pais=puerto.pais,
-            latitud=puerto.latitud,
-            longitud=puerto.longitud
-        ))
+        # Insertar todos los nodos a la base de datos en una sola operación
+        Nodo.objects.bulk_create(nodos_db, ignore_conflicts=True)  # `ignore_conflicts` ignora los duplicados
 
-    # Insertar todos los nodos a la base de datos en una sola operación
-    Nodo.objects.bulk_create(nodos_db, ignore_conflicts=True)  # `ignore_conflicts` ignora los duplicados
+        # Añadir aristas (conexiones entre puertos) al grafo y almacenar en una lista para batch insert
+        edges = {
+            (puerto_origen, puerto_destino)
+            for puerto_origen, puerto_destino in registros
+            if puerto_origen and puerto_destino and puerto_origen != 0 and puerto_destino != 0
+        }
 
-    # Añadir aristas (conexiones entre puertos) al grafo y almacenar en una lista para batch insert
-    edges = {
-        (puerto_origen, puerto_destino)
-        for puerto_origen, puerto_destino in registros
-        if puerto_origen and puerto_destino and puerto_origen != 0 and puerto_destino != 0
-    }
+        aristas_db = []
+        for origen_codigo, destino_codigo in edges:
+            G.add_edge(origen_codigo, destino_codigo)
+            nodo_origen = G.nodes[origen_codigo]
+            nodo_destino = G.nodes[destino_codigo]
+            distancia = calcular_distancia(
+                nodo_origen['latitud'], nodo_origen['longitud'],
+                nodo_destino['latitud'], nodo_destino['longitud']
+            )
+            aristas_db.append(Arista(
+                origen=Nodo.objects.get(codigo=origen_codigo),
+                destino=Nodo.objects.get(codigo=destino_codigo),
+                distancia=distancia
+            ))
 
-    aristas_db = []
-    for origen_codigo, destino_codigo in edges:
-        # Añadir la arista al grafo
-        G.add_edge(origen_codigo, destino_codigo)
-        
-        # Obtener nodos de origen y destino
-        nodo_origen = G.nodes[origen_codigo]
-        nodo_destino = G.nodes[destino_codigo]
+        Arista.objects.bulk_create(aristas_db, ignore_conflicts=True)
 
-        # Calcular la distancia entre los nodos (usando latitud y longitud)
-        distancia = calcular_distancia(
-            nodo_origen['latitud'], nodo_origen['longitud'],
-            nodo_destino['latitud'], nodo_destino['longitud']
-        )
+        print("Grafo construido y guardado en la base de datos.")
 
-        # Crear la arista en memoria
-        aristas_db.append(Arista(
-            origen=Nodo.objects.get(codigo=origen_codigo),
-            destino=Nodo.objects.get(codigo=destino_codigo),
-            distancia=distancia
-        ))
+    # Guardar el grafo en un archivo para uso futuro
+    with open(GRAFO_FILE_PATH, 'wb') as f:
+        pickle.dump(G, f)
 
-    # Insertar todas las aristas a la base de datos en una sola operación
-    Arista.objects.bulk_create(aristas_db, ignore_conflicts=True)
-
-    print("Grafo construido y guardado en la base de datos.")
+    print("Grafo guardado en el archivo.")
     return G
 def inhabilitar_puerto(G, codigo_puerto):
     """
@@ -142,54 +148,87 @@ def obtener_vecinos_puerto(G, codigo_puerto):
         return []   
     
 def visualizar_rutas_alternativas(G, puerto_origen, puertos_alternativos):
-    import folium
-    from folium.plugins import MarkerCluster
-    
-    centro_lat = -35.6751
-    centro_lon = -71.5430
-    m = folium.Map(location=[centro_lat, centro_lon], zoom_start=5)
-    marker_cluster = MarkerCluster().add_to(m)
-    
-    # Añadir puertos al mapa
-    for node in G.nodes():
-        lat = G.nodes[node].get('LATITUD')
-        lon = G.nodes[node].get('LONGITUD')
-        nombre_puerto = G.nodes[node].get('NOMBRE_PUERTO', '')
-        codigo_puerto = node
-        if pd.notna(lat) and pd.notna(lon):
-            if codigo_puerto == puerto_origen:
-                color = 'green'
-            elif codigo_puerto in [pa[0] for pa in puertos_alternativos]:
-                color = 'orange'
-            else:
-                color = 'blue'
-            folium.Marker(
-                location=[lat, lon],
-                popup=f"{nombre_puerto} ({codigo_puerto})",
-                icon=folium.Icon(color=color, icon='anchor', prefix='fa')
-            ).add_to(marker_cluster)
+    # Función para extraer coordenadas de la ruta
+    def extract_route_coordinates(route):
+        coordinates = []
+        if not route:
+            print("La ruta es None o está vacía.")
+            return coordinates
 
-    
-    for puerto_alternativo, camino in puertos_alternativos:
-        coordenadas_camino = []
-        for codigo_puerto in camino:
-            lat = G.nodes[codigo_puerto].get('LATITUD')
-            lon = G.nodes[codigo_puerto].get('LONGITUD')
-            if pd.notna(lat) and pd.notna(lon):
-                coordenadas_camino.append((lat, lon))
-        if coordenadas_camino:
-            folium.PolyLine(
-                locations=coordenadas_camino,
-                color='green',
-                weight=3,
-                opacity=0.8
-            ).add_to(m)
-    # Generar nombre aleatorio
-    random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    grafo_html_path = os.path.join(settings.STATIC_ROOT,f'{random_string}.html')
+        if 'geometry' in route and 'coordinates' in route['geometry']:
+            coords = route['geometry']['coordinates']
+            for point in coords:
+                coordinates.append([point[1], point[0]])  # Invertir el orden para obtener [latitud, longitud]
+        else:
+            print("La estructura de la ruta no es la esperada.")
+        return coordinates
 
-    m.save(grafo_html_path)
-    return random_string + '.html'   # Retornar el nombre del archivo HTML
+    try:
+        # Crear el mapa centrado en Chile
+        centro_lat = -35.6751
+        centro_lon = -71.5430
+        m = folium.Map(location=[centro_lat, centro_lon], zoom_start=5)
+        marker_cluster = MarkerCluster().add_to(m)
+
+        # Añadir puertos al mapa
+        for node in G.nodes():
+            try:
+                lat = G.nodes[node].get('latitud')
+                lon = G.nodes[node].get('longitud')
+                nombre_puerto = G.nodes[node].get('nombre', '')
+                codigo_puerto = node
+                if pd.notna(lat) and pd.notna(lon):
+                    color = 'green' if codigo_puerto == puerto_origen else 'orange' if codigo_puerto in [pa[0] for pa in puertos_alternativos] else 'blue'
+                    folium.Marker(
+                        location=[lat, lon],
+                        popup=f"{nombre_puerto} ({codigo_puerto})",
+                        icon=folium.Icon(color=color, icon='anchor', prefix='fa')
+                    ).add_to(marker_cluster)
+            except Exception as e:
+                print(f"Error al añadir el puerto {node}: {e}")
+
+        # Calcular y añadir rutas al mapa
+        for puerto_alternativo, _ in puertos_alternativos:
+            try:
+                origin = [G.nodes[str(puerto_origen)]['longitud'], G.nodes[str(puerto_origen)]['latitud']]
+                destination = [G.nodes[str(puerto_alternativo)]['longitud'], G.nodes[str(puerto_alternativo)]['latitud']]
+                print(f'Calculando ruta de {origin} a {destination}')
+
+                # Calcular la ruta marítima
+                route = sr.searoute(
+                    origin,
+                    destination,
+                    append_orig_dest=True,
+                    restrictions=['northwest'],
+                    include_ports=True,
+                    port_params={'only_terminals': True}
+                )
+
+                route_coords = extract_route_coordinates(route)
+
+                # Añadir la ruta al mapa
+                if route_coords:
+                    folium.PolyLine(
+                        locations=route_coords,
+                        color='green',
+                        weight=3,
+                        opacity=0.8
+                    ).add_to(m)
+                else:
+                    print(f"No se pudieron extraer las coordenadas de la ruta entre {puerto_origen} y {puerto_alternativo}")
+            except Exception as e:
+                print(f"Ocurrió un error al procesar la ruta entre {puerto_origen} y {puerto_alternativo}: {e}")
+
+        # Guardar el mapa en un archivo HTML con un nombre aleatorio
+        random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        grafo_html_path = f'{random_string}.html'
+        m.save(grafo_html_path)
+        print(f"Mapa guardado en '{grafo_html_path}'")
+        return grafo_html_path
+
+    except Exception as e:
+        print(f"Ocurrió un error general en la función: {e}")
+        return None
 def generar_infraestructura(puerto_origen: Puerto, puerto_destino: Puerto):
     """
     Genera la infraestructura para un puerto cerrado
@@ -197,8 +236,9 @@ def generar_infraestructura(puerto_origen: Puerto, puerto_destino: Puerto):
     G = construir_grafo()
     puerto_destino = puerto_destino.codigo
     puerto_origen = puerto_origen.codigo
-    inhabilitar_puerto(G, puerto_destino)
-    vecinos_origen = obtener_vecinos_puerto(G, puerto_origen)
+    inhabilitar_puerto(G, str(puerto_destino))
+    vecinos_origen = obtener_vecinos_puerto(G, str(puerto_origen))
+
     if puerto_destino in vecinos_origen:
         vecinos_origen.remove(puerto_destino)
 
