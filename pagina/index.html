@@ -347,75 +347,69 @@
       }
 
       async function obtenerRestriccionesBahia(id_bahia) {
-        const resultadoDiv = document.getElementById("resultado");
-        resultadoDiv.innerHTML = "<p>Cargando restricciones de la bahía...</p>";
+    const resultadoDiv = document.getElementById("resultado");
+    resultadoDiv.innerHTML = "<p>Cargando restricciones de la bahía...</p>";
 
-        const url = `https://marineanalytics.liftlogic.cl/application/restricciones/bahias/${id_bahia}/`;
+    const url = `https://marineanalytics.liftlogic.cl/application/restricciones/bahias/${id_bahia}/`;
 
-        try {
-          const response = await fetch(url, { method: "GET" });
+    try {
+        const response = await fetch(url, { method: "GET" });
 
-          if (!response.ok) {
+        if (!response.ok) {
             throw new Error(
-              `Error al obtener las restricciones de la bahía: ${response.status}`
+                `Error al obtener las restricciones de la bahía: ${response.status}`
             );
-          }
-
-          const data = await response.json();
-          const bahiaInfo = data.bahia;
-          const restricciones = data.restricciones;
-
-          const restriccionesFiltradas = restricciones.filter(
-            (restriccion) => restriccion.bahia === parseInt(id_bahia)
-          );
-
-          if (restriccionesFiltradas.length === 0) {
-            resultadoDiv.innerHTML = `<p>No se encontraron restricciones para la bahía con ID ${id_bahia}.</p>`;
-            return;
-          }
-
-          let html = `<h3>Restricciones para la Bahía: ${bahiaInfo.nombre}</h3>`;
-          restriccionesFiltradas.forEach((restriccion) => {
-            html += `
-                        <div class="restriccion">
-                            <p><strong>Inicio:</strong> ${
-                              restriccion.FCinicio || "N/A"
-                            }</p>
-                            <p><strong>Término:</strong> ${
-                              restriccion.FCTermino || "Sin término"
-                            }</p>
-                            <p><strong>Tipo:</strong> ${
-                              restriccion.tipo || "No especificado"
-                            }</p>
-                            <p><strong>Nombre Instalación:</strong> ${
-                              restriccion.NombreInstalacion || "No disponible"
-                            }</p>
-                            <p><strong>Frente Atraque:</strong> ${
-                              restriccion.FrenteAtraque || "No disponible"
-                            }</p>
-                            <p><strong>Observación:</strong> ${
-                              restriccion.Observacion || "No disponible"
-                            }</p>
-                            <p><strong>Motivo Restricción:</strong> ${
-                              restriccion.MotivoRestriccion || "No disponible"
-                            }</p>
-                            <p><strong>Área de Restricción:</strong> ${
-                              restriccion.AreaRestriccion || "No especificada"
-                            }</p>
-                            <p><strong>Tipo Restricción:</strong> ${
-                              restriccion.tiporestriccion || "No disponible"
-                            }</p>
-                        </div>
-                        <hr>
-                    `;
-          });
-
-          resultadoDiv.innerHTML = html;
-        } catch (error) {
-          console.error("Error:", error);
-          resultadoDiv.innerHTML = `<p>Error al cargar las restricciones: ${error.message}</p>`;
         }
-      }
+
+        const data = await response.json();
+        const bahiaInfo = data.bahia;
+        const restricciones = data.restricciones;
+
+        // Filtrar restricciones para la bahía específica
+        const restriccionesFiltradas = restricciones.filter(
+            (restriccion) => restriccion.bahia === parseInt(id_bahia)
+        );
+
+        // Calcular la probabilidad de falla
+        const probabilidadFalla = restriccionesFiltradas.length > 0 ? 100 : 0;
+
+        // Si no hay restricciones activas
+        if (restriccionesFiltradas.length === 0) {
+            resultadoDiv.innerHTML = `
+                <h3>Restricciones para la Bahía: ${bahiaInfo.nombre}</h3>
+                <p>No se encontraron restricciones para la bahía con ID ${id_bahia}.</p>
+                <p><strong>Probabilidad de falla:</strong> ${probabilidadFalla}%</p>`;
+            return;
+        }
+
+        // Si hay restricciones activas, mostrar los detalles
+        let html = `<h3>Restricciones para la Bahía: ${bahiaInfo.nombre}</h3>`;
+        html += `<p><strong>Probabilidad de falla:</strong> ${probabilidadFalla}%</p><hr>`;
+        
+        restriccionesFiltradas.forEach((restriccion) => {
+            html += `
+                <div class="restriccion">
+                    <p><strong>Inicio:</strong> ${restriccion.FCinicio || "N/A"}</p>
+                    <p><strong>Término:</strong> ${restriccion.FCTermino || "Sin término"}</p>
+                    <p><strong>Tipo:</strong> ${restriccion.tipo || "No especificado"}</p>
+                    <p><strong>Nombre Instalación:</strong> ${restriccion.NombreInstalacion || "No disponible"}</p>
+                    <p><strong>Frente Atraque:</strong> ${restriccion.FrenteAtraque || "No disponible"}</p>
+                    <p><strong>Observación:</strong> ${restriccion.Observacion || "No disponible"}</p>
+                    <p><strong>Motivo Restricción:</strong> ${restriccion.MotivoRestriccion || "No disponible"}</p>
+                    <p><strong>Área de Restricción:</strong> ${restriccion.AreaRestriccion || "No especificada"}</p>
+                    <p><strong>Tipo Restricción:</strong> ${restriccion.tiporestriccion || "No disponible"}</p>
+                </div>
+                <hr>
+            `;
+        });
+
+        resultadoDiv.innerHTML = html;
+    } catch (error) {
+        console.error("Error:", error);
+        resultadoDiv.innerHTML = `<p>Error al cargar las restricciones: ${error.message}</p>`;
+    }
+}
+
 
       async function obtenerNavesRecalando() {
         const resultadoDiv = document.getElementById("resultado");
@@ -640,170 +634,183 @@
       }
 
       async function ObtenerClimaPuerto() {
-        const codigoPuerto = document.getElementById("input6").value;
+    const codigoPuerto = document.getElementById("input6").value;
 
-        if (!codigoPuerto) {
-          document.getElementById("resultado").innerHTML =
-            "<p>Por favor, ingrese el código del puerto.</p>";
-          return;
+    if (!codigoPuerto) {
+        document.getElementById("resultado").innerHTML = "<p>Por favor, ingrese el código del puerto.</p>";
+        return;
+    }
+
+    const resultadoDiv = document.getElementById("resultado");
+    resultadoDiv.innerHTML = "<p>Cargando información del clima...</p>";
+
+    const url = `https://marineanalytics.liftlogic.cl/application/puerto/${codigoPuerto}/clima/`;
+
+    try {
+        const response = await fetch(url, { method: "GET" });
+
+        if (!response.ok) {
+            throw new Error(`Error al obtener la información del clima: ${response.status}`);
         }
 
-        const resultadoDiv = document.getElementById("resultado");
-        resultadoDiv.innerHTML = "<p>Cargando información del clima...</p>";
+        const data = await response.json();
+        const climaHoy = data.current;
+        
+        // Calcular la probabilidad de falla por lluvia usando los datos horarios
+        const precipTotal = data.hourly.reduce((total, hora) => total + (hora.rain ? hora.rain["1h"] || 0 : 0), 0);
+        const precipMax = Math.min(precipTotal, 150); // Limitar precipitación a un máximo de 150 mm
+        const probabilidadFalla = (precipMax / 150) * 100;
 
-        const url = `https://marineanalytics.liftlogic.cl/application/puerto/${codigoPuerto}/clima/`;
+        resultadoDiv.innerHTML = `
+            <h3>Detalles del clima de hoy en el puerto con código: ${codigoPuerto}</h3>
+            <p><strong>Temperatura actual:</strong> ${climaHoy.temp || "No disponible"}°C</p>
+            <p><strong>Sensación térmica:</strong> ${climaHoy.feels_like || "No disponible"}°C</p>
+            <p><strong>Humedad:</strong> ${climaHoy.humidity || "No disponible"}%</p>
+            <p><strong>Presión atmosférica:</strong> ${climaHoy.pressure || "No disponible"} hPa</p>
+            <p><strong>Velocidad del viento:</strong> ${climaHoy.wind_speed || "No disponible"} km/h</p>
+            <p><strong>Dirección del viento:</strong> ${climaHoy.wind_deg || "No disponible"}°</p>
+            <p><strong>Estado del clima:</strong> ${climaHoy.weather[0].description || "No disponible"}</p>
+            <p><strong>Probabilidad de falla por lluvia:</strong> ${probabilidadFalla.toFixed(2)|| "No disponible"}%</p>
+        `;
+    } catch (error) {
+        console.error("Error:", error);
+        resultadoDiv.innerHTML = `<p>Error al cargar la información del clima: ${error.message}</p>`;
+    }
+}
 
-        try {
-          const response = await fetch(url, { method: "GET" });
 
-          if (!response.ok) {
-            throw new Error(
-              `Error al obtener la información del clima: ${response.status}`
-            );
-          }
+async function obtenerOleaje() {
+    const codigoPuerto = document.getElementById("input6").value;
 
-          const data = await response.json();
-          const climaHoy = data.current;
+    if (!codigoPuerto) {
+        alert("Por favor ingresa un código de puerto válido.");
+        return;
+    }
 
-          resultadoDiv.innerHTML = `
-                    <h3>Detalles del clima de hoy en el puerto con código: ${codigoPuerto}</h3>
-                    <p><strong>Temperatura actual:</strong> ${
-                      climaHoy.temp || "No disponible"
-                    }°C</p>
-                    <p><strong>Sensación térmica:</strong> ${
-                      climaHoy.feels_like || "No disponible"
-                    }°C</p>
-                    <p><strong>Humedad:</strong> ${
-                      climaHoy.humidity || "No disponible"
-                    }%</p>
-                    <p><strong>Presión atmosférica:</strong> ${
-                      climaHoy.pressure || "No disponible"
-                    } hPa</p>
-                    <p><strong>Velocidad del viento:</strong> ${
-                      climaHoy.wind_speed || "No disponible"
-                    } km/h</p>
-                    <p><strong>Dirección del viento:</strong> ${
-                      climaHoy.wind_deg || "No disponible"
-                    }°</p>
-                    <p><strong>Estado del clima:</strong> ${
-                      climaHoy.weather[0].description || "No disponible"
-                    }</p>
-                `;
-        } catch (error) {
-          console.error("Error:", error);
-          resultadoDiv.innerHTML = `<p>Error al cargar la información del clima: ${error.message}</p>`;
-        }
-      }
+    const resultadoDiv = document.getElementById("resultado");
+    resultadoDiv.innerHTML = "<p>Cargando información del oleaje...</p>";
 
-      async function obtenerOleaje() {
-        const codigoPuerto = document.getElementById("input6").value;
-
-        if (!codigoPuerto) {
-          alert("Por favor ingresa un código de puerto válido.");
-          return;
-        }
-
-        const resultadoDiv = document.getElementById("resultado");
-        resultadoDiv.innerHTML = "<p>Cargando información del oleaje...</p>";
-
-        try {
-          const response = await fetch(
+    try {
+        const response = await fetch(
             `https://marineanalytics.liftlogic.cl/application/puerto/${codigoPuerto}/oleaje/`,
             { method: "GET" }
-          );
+        );
 
-          if (!response.ok) {
-            throw new Error(
-              `Error al obtener el oleaje del puerto: ${response.status}`
-            );
-          }
-
-          const data = await response.json();
-
-          if (data.length === 0) {
-            resultadoDiv.innerHTML =
-              "<p>No se encontró información de oleaje para este puerto.</p>";
-            return;
-          }
-
-          let html = "<h3>Oleaje en el puerto</h3><ul>";
-          data.forEach((oleaje) => {
-            html += `
-                        <li>
-                            <div class="oleaje-info">
-                                <strong>Hora: ${
-                                  oleaje.hour || "N/A"
-                                } hrs</strong><br/>
-                                Altura de ola: ${
-                                  oleaje.wave_height || "N/A"
-                                } metros<br/>
-                                Dirección de ola: ${
-                                  oleaje.wave_direction || "N/A"
-                                } grados<br/>
-                                Periodo de ola: ${
-                                  oleaje.wave_period || "N/A"
-                                } segundos<br/>
-                            </div>
-                        </li>
-                    `;
-          });
-          html += "</ul>";
-
-          resultadoDiv.innerHTML = html;
-        } catch (error) {
-          console.error("Error:", error);
-          resultadoDiv.innerHTML = `<p>Error al cargar la información del oleaje. ${error.message}</p>`;
+        if (!response.ok) {
+            throw new Error(`Error al obtener el oleaje del puerto: ${response.status}`);
         }
-      }
 
-      async function obtenerSismologia() {
+        const data = await response.json();
+
+        if (data.length === 0) {
+            resultadoDiv.innerHTML = "<p>No se encontró información de oleaje para este puerto.</p>";
+            return;
+        }
+
+        // Calcular el máximo nivel de oleaje del conjunto de datos
+        const maxWaveHeight = data.reduce((max, oleaje) => Math.max(max, oleaje.wave_height), 0);
+        
+        // Calcular la probabilidad de falla basada en el nivel máximo de oleaje
+        let probabilidadFallaOleaje = 0;
+        if (maxWaveHeight >= 1.8) {
+            probabilidadFallaOleaje = 100;
+        } else if (maxWaveHeight >= 1.5) {
+            probabilidadFallaOleaje = ((maxWaveHeight - 1.5) / 0.3) * 100;
+        } else {
+            probabilidadFallaOleaje = 0;
+        }
+
+        // Generar el HTML para mostrar cada registro de oleaje y la probabilidad de falla
+        let html = "<h3>Oleaje en el puerto</h3><ul>";
+        data.forEach((oleaje) => {
+            html += `
+                <li>
+                    <div class="oleaje-info">
+                        <strong>Hora: ${oleaje.hour || "N/A"} hrs</strong><br/>
+                        Altura de ola: ${oleaje.wave_height || "N/A"} metros<br/>
+                        Dirección de ola: ${oleaje.wave_direction || "N/A"} grados<br/>
+                        Periodo de ola: ${oleaje.wave_period || "N/A"} segundos<br/>
+                    </div>
+                </li>
+            `;
+        });
+        html += `
+            </ul>
+            <h3>Resumen de Probabilidad de Falla</h3>
+            <p><strong>Máximo nivel de oleaje observado:</strong> ${maxWaveHeight.toFixed(2)} m</p>
+            <p><strong>Probabilidad de falla por oleaje:</strong> ${probabilidadFallaOleaje.toFixed(2)}%</p>
+        `;
+
+        resultadoDiv.innerHTML = html;
+
+    } catch (error) {
+        console.error("Error:", error);
+        resultadoDiv.innerHTML = `<p>Error al cargar la información del oleaje. ${error.message}</p>`;
+    }
+}
+
+
+async function obtenerSismologia() {
         const resultadoDiv = document.getElementById("resultadoSismologia");
         resultadoDiv.innerHTML = "<p>Cargando información de sismología...</p>";
-
+      
         try {
           const response = await fetch(
             "https://marineanalytics.liftlogic.cl/application/sismologia/",
             { method: "GET" }
           );
-
+      
           if (!response.ok) {
             throw new Error(
               `Error al obtener la información de sismología: ${response.status}`
             );
           }
-
+      
           const data = await response.json();
-
-          if (data.length === 0) {
-            resultadoDiv.innerHTML =
-              "<p>No se encontró información de sismología.</p>";
-            return;
-          }
-
+      
           let html = "<h3>Información de Sismología</h3><ul>";
           data.forEach((sismo) => {
+            // Aseguramos que la magnitud es un número
+            const magnitud = parseFloat(sismo.magnitud);
+            let probabilidadFalla;
+            if (!isNaN(magnitud)) {
+              if (magnitud <= 5) {
+                probabilidadFalla = 0;
+              } else if (magnitud >= 7) {
+                probabilidadFalla = 100;
+              } else {
+                probabilidadFalla = ((magnitud - 5) / (7 - 5)) * 100;
+              }
+              // Redondeamos a dos decimales
+              probabilidadFalla = probabilidadFalla.toFixed(2);
+            } else {
+              probabilidadFalla = "N/A";
+            }
+      
             html += `
-                        <li>
-                            <div class="sismo-info">
-                                <strong>Fecha y Ubicación: ${
-                                  sismo.fecha_ubicacion || "N/A"
-                                }</strong><br/>
-                                Profundidad: ${
-                                  sismo.profundidad || "N/A"
-                                } km<br/>
-                                Magnitud: ${sismo.magnitud || "N/A"}
-                            </div>
-                        </li>
-                    `;
+              <li>
+                <div class="sismo-info">
+                  <strong>Fecha y Ubicación: ${
+                    sismo.fecha_ubicacion || "N/A"
+                  }</strong><br/>
+                  Profundidad: ${sismo.profundidad || "N/A"} km<br/>
+                  Magnitud: ${sismo.magnitud || "N/A"}<br/>
+                  <strong>Probabilidad de falla: ${
+                    probabilidadFalla
+                  }%</strong><br/>
+                </div>
+              </li>
+            `;
           });
           html += "</ul>";
-
+      
           resultadoDiv.innerHTML = html;
         } catch (error) {
           console.error("Error:", error);
           resultadoDiv.innerHTML = `<p>Error al cargar la información de sismología: ${error.message}</p>`;
         }
       }
+
     </script>
   </body>
 </html>
