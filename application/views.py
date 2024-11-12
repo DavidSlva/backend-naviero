@@ -333,3 +333,48 @@ class ObtenerRestriccionesView(APIView):
                 {'status': 'error', 'message': 'Error al obtener los datos de la restricción.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+class Guardar(APIView):
+    def guardar_probabilidades(request):
+        from django.http import JsonResponse
+        from django.views.decorators.csrf import csrf_exempt
+        import os
+        import csv
+        if request.method == 'POST':
+            import json
+
+            try:
+                data = json.loads(request.body)
+                sismos = data.get('sismos', [])
+
+                if not sismos or not isinstance(sismos, list):
+                    return JsonResponse({'message': 'Datos inválidos'}, status=400)
+
+                # Definir la ruta donde se guardará el archivo
+                ruta_carpeta = os.path.join(os.path.dirname(__file__), 'archivos')
+                if not os.path.exists(ruta_carpeta):
+                    os.makedirs(ruta_carpeta)
+
+                ruta_archivo = os.path.join(ruta_carpeta, 'sismologia_probabilidades.csv')
+
+                # Escribir el archivo CSV
+                with open(ruta_archivo, mode='w', newline='', encoding='utf-8') as archivo_csv:
+                    escritor_csv = csv.writer(archivo_csv)
+                    # Escribir encabezados
+                    escritor_csv.writerow(['Fecha y Ubicación', 'Profundidad (km)', 'Magnitud', 'Probabilidad de Falla'])
+                    # Escribir datos de sismos
+                    for sismo in sismos:
+                        escritor_csv.writerow([
+                            sismo.get('fecha_ubicacion', 'N/A'),
+                            sismo.get('profundidad', 'N/A'),
+                            sismo.get('magnitud', 'N/A'),
+                            sismo.get('probabilidadFalla', 'N/A')
+                        ])
+
+                print('Archivo guardado en:', ruta_archivo)
+                return JsonResponse({'message': 'Archivo generado exitosamente'})
+
+            except Exception as e:
+                print('Error al procesar la solicitud:', e)
+                return JsonResponse({'message': 'Error al procesar la solicitud'}, status=500)
+        else:
+            return JsonResponse({'message': 'Método no permitido'}, status=405)
