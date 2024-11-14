@@ -18,9 +18,10 @@ class PaisAdmin(SimpleHistoryAdmin):
 
 @admin.register(Puerto)
 class PuertoAdmin(SimpleHistoryAdmin):
-    list_display = ['codigo', 'nombre', 'pais', 'tipo', 'latitud', 'longitud', 'zona_geografica']
-    search_fields = ['nombre', 'codigo']
-    list_filter = ['pais']
+    list_display = ['codigo', 'nombre', 'pais', 'tipo', 'latitud', 'longitud', 'zona_geografica', 'sector']
+    search_fields = ['nombre', 'codigo', 'pais__nombre','tipo']
+    list_filter = ['pais', 'sector']
+    autocomplete_fields = ['pais', 'sector']
 
 @admin.register(TipoOperacion)
 class TipoOperacionAdmin(SimpleHistoryAdmin):
