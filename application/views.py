@@ -579,20 +579,20 @@ class SimularView(APIView):
                     
                     if 'RESTRICCIONES' in opciones_seleccionadas:
                         if random.random() < probabilidadFallaBahia/100:
-                            puertos_restringidos = puerto
+                            puertos_restringidos = puerto.codigo
                     
                     if 'SISMO' in opciones_seleccionadas:
                         if random.random() < probabilidadFallaSismo_final/100:
-                            puertos_restringidos = puerto
+                            puertos_restringidos = puerto.codigo
 
                     if 'LLUVIA' in opciones_seleccionadas:
                         if random.random() < probabilidadFallaLluvia/100:
-                            puertos_restringidos = puerto
+                            puertos_restringidos = puerto.codigo
 
                             
                     if 'OLEAJE' in opciones_seleccionadas:
                         if random.random() < probabilidadFallaOleaje/100:
-                            puertos_restringidos = puerto
+                            puertos_restringidos = puerto.codigo
 
                     if puertos_restringidos is not None:
                         contenido.append(puertos_restringidos)
@@ -603,7 +603,5 @@ class SimularView(APIView):
                         'Puerto': puerto.nombre,
                         'Error': f"Error al obtener datos: {str(e)}",
                     }
-            print(contenido) 
-            serialaser = PuertoSerializer(contenido, many = True).data
-        return Response(serialaser, status=status.HTTP_200_OK)
+        return Response(contenido, status=status.HTTP_200_OK)
 
