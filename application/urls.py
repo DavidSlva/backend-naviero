@@ -10,7 +10,6 @@ urlpatterns = [
          name='obtener_restricciones de una bahia'),
     path('naves/<int:id_nave>/', ObtenerNavesView.as_view(), name='obtener_nave por id de sitport'),  # Posible punto 1
     path('naves/ubicacion/imo/<int:imo>/', UbicacionApiView.as_view(), name='obtener_ubicacion_nave'),
-    # path('puerto/<int:id_puerto>/naves/recalando/', PuertoNavesRecalandoView.as_view(), name='obtener_naves_recalando_puerto'),
     path('puerto/naves/recalando/', PuertoNavesRecalandoView.as_view(), name='obtener_naves_recalando_puerto'),
     path('puerto/<int:codigo_puerto>/clima/', GetCurrentWeatherView.as_view(), name='obtener_clima_puerto'),
     # REVISAR

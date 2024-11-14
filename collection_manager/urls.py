@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 router = DefaultRouter()
 router.register(r'bahias', views.BahiaViewSet, basename='bahia')
 router.register(r'paises', views.PaisViewSet, basename='pais')
-router.register(r'puertos', views.PuertoViewSet, basename='puerto')
+router.register(r'puertos', views.PuertoViewSet, basename='puertos')
 router.register(r'tipos_operacion', views.TipoOperacionViewSet, basename='tipo_operacion')
 router.register(r'aduanas', views.AduanaViewSet, basename='aduana')
 router.register(r'tipos_carga', views.TipoCargaViewSet, basename='tipo_carga')

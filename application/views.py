@@ -1,3 +1,5 @@
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,7 +14,10 @@ from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiRequest
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse
+from django.views import View
+from django.http import HttpResponse
 import requests
+from geopy.distance import geodesic
 
 from django.http import JsonResponse
 import os
@@ -342,29 +347,85 @@ class ObtenerRestriccionesView(APIView):
             )
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class GuardarView(APIView) :
 
     def get(self, request) :
         # Filtrar los puertos de Chile que son puertos marítimos
         puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
-
-        # Obtener sismos en Chile (aunque no se usa en este ejemplo, puedes integrarlo si lo necesitas)
-        sismos = obtener_sismos_chile()
+        
+        # Obtener las restricciones de la bahía
+        #restricciones = obtener_restricciones(bahia.id)
 
         # Lista para almacenar las líneas del archivo de texto
         contenido = []
+        
 
         for puerto in puertos_chile :
             if puerto.latitud and puerto.longitud :
                 try :
+                    #bahias = puerto.sector
+                    #print(f"ID BAHIAS: {bahias}")
+                    
                     weather = get_current_weather(puerto.latitud, puerto.longitud)
                     wave_data = get_current_wave(puerto.latitud, puerto.longitud)
+                    sismos = obtener_sismos_chile()
+                    
+                    climaHoy = weather.get('current', {})
+                    hourly_data = weather.get('hourly', {})
+                    maxWaveHeight = max(oleaje.get('wave_height', 0) for oleaje in wave_data)
+                    
+                    
+                    #Distancia maxima para sismos
+                    distancia_maxima_km = 500
+                    ubicacion_puerto = (puerto.latitud, puerto.longitud)
+                    probabilidadFallaSismo_inicial = 0
+                    probabilidadFallaSismo_final = 0
+                    
+                    #Calculo de la probabilidad para Sismos
+                    for sismo in sismos:
+                        epicentro = (sismo.get('latitud'), sismo.get('longitud'))
+                        try:
+                            distancia = geodesic(epicentro, ubicacion_puerto).kilometers
+                            esta_cerca = distancia <= distancia_maxima_km
+                        except ValueError:
+                            esta_cerca = False
+                        
+                        if esta_cerca:
+                            magnitud = sismo.get('magnitud')
+                            if magnitud is None:
+                                probabilidadFallaSismo = 0
+                            elif magnitud <= 5:
+                                probabilidadFallaSismo = 0
+                            elif magnitud >= 7:
+                                probabilidadFallaSismo = 100
+                            else:
+                                probabilidadFallaSismo = ((magnitud - 5)/(7 - 5))*100
+                                
+                            probabilidadFallaSismo_final = max(probabilidadFallaSismo_inicial, probabilidadFallaSismo) 
+                                
+                    
+                    #Calculo de la probabilidad para LLuvia
+                    precipTotal = sum(hora.get('rain', {}).get('1h', 0) for hora in hourly_data)
+                    precipMax = min(precipTotal, 150)
+                    probabilidadFalla = (precipMax/150)*100
+                    
+                    #Calculo de la probabilidad para el Oleaje
+                    if maxWaveHeight >= 1.8:
+                        probabilidadFallaOleaje = 100
+                    elif maxWaveHeight >= 1.5:
+                        probabilidadFallaOleaje = ((maxWaveHeight - 1.5)/0.3)*100
+                    else:
+                        probabilidadFallaOleaje = 0
+                    
 
                     # Añadir información al contenido
                     contenido.append(f"Puerto: {puerto.nombre}\n")
                     contenido.append(f"País: {puerto.pais.nombre}\n")
-                    contenido.append(f"Clima: {weather}\n")
-                    contenido.append(f"Datos de Olas: {wave_data}\n")
+                    contenido.append(f"Clima: {climaHoy}\n")
+                    contenido.append(f"Probabilidad de Falla para LLuvia: {probabilidadFalla:.2f}%\n")
+                    contenido.append(f"Probabilidad de Falla para Oleaje: {probabilidadFallaOleaje:.2f}%\n")
+                    contenido.append(f"Probabilidad de Falla para Sismos: {probabilidadFallaSismo_final:.2f}%\n")
                     contenido.append("-" * 40 + "\n")  # Separador entre puertos
                 except Exception as e :
                     # Manejar excepciones y registrar el error en el contenido
@@ -384,49 +445,6 @@ class GuardarView(APIView) :
         respuesta = HttpResponse(texto_final, content_type='text/plain')
         respuesta['Content-Disposition'] = 'attachment; filename="datos_puertos.txt"'
 
+
         return respuesta
 
-
-
-
-    # def guardar_probabilidades(request):
-    #
-    #
-    #     if request.method == 'POST':
-    #
-    #         try:
-    #             data = json.loads(request.body)
-    #             sismos = data.get('sismos', [])
-    #
-    #             if not sismos or not isinstance(sismos, list):
-    #                 return JsonResponse({'message': 'Datos inválidos'}, status=400)
-    #
-    #             # Definir la ruta donde se guardará el archivo
-    #             ruta_carpeta = os.path.join(os.path.dirname(__file__), 'archivos')
-    #             if not os.path.exists(ruta_carpeta):
-    #                 os.makedirs(ruta_carpeta)
-    #
-    #             ruta_archivo = os.path.join(ruta_carpeta, 'sismologia_probabilidades.csv')
-    #
-    #             # Escribir el archivo CSV
-    #             with open(ruta_archivo, mode='w', newline='', encoding='utf-8') as archivo_csv:
-    #                 escritor_csv = csv.writer(archivo_csv)
-    #                 # Escribir encabezados
-    #                 escritor_csv.writerow(['Fecha y Ubicación', 'Profundidad (km)', 'Magnitud', 'Probabilidad de Falla'])
-    #                 # Escribir datos de sismos
-    #                 for sismo in sismos:
-    #                     escritor_csv.writerow([
-    #                         sismo.get('fecha_ubicacion', 'N/A'),
-    #                         sismo.get('profundidad', 'N/A'),
-    #                         sismo.get('magnitud', 'N/A'),
-    #                         sismo.get('probabilidadFalla', 'N/A')
-    #                     ])
-    #
-    #             print('Archivo guardado en:', ruta_archivo)
-    #             return JsonResponse({'message': 'Archivo generado exitosamente'})
-    #
-    #         except Exception as e:
-    #             print('Error al procesar la solicitud:', e)
-    #             return JsonResponse({'message': 'Error al procesar la solicitud'}, status=500)
-    #     else:
-    #         return JsonResponse({'message': 'Método no permitido'}, status=405)

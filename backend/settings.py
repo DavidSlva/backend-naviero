@@ -50,11 +50,13 @@ INSTALLED_APPS = [
     'simple_history',
     'application',
     'drf_spectacular',
-    'interpreter'
+    'interpreter',
+    'django_filters',
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_FILTER_BACKENDS' : ['django_filters.rest_framework.DjangoFilterBackend']
 }
 
 SPECTACULAR_SETTINGS = {
@@ -169,4 +171,5 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:8000',
     'http://localhost:8001',
+    'http://0.0.0.0:8001'
 ]
