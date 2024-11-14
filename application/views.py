@@ -364,7 +364,6 @@ class GuardarView(APIView):
                     wave_data = get_current_wave(puerto.latitud, puerto.longitud)
                     sismos = obtener_sismos_chile()
                     
-                    climaHoy = weather.get('current', {})
                     hourly_data = weather.get('hourly', {})
                     maxWaveHeight = max(oleaje.get('wave_height', 0) for oleaje in wave_data)
                     
@@ -373,6 +372,19 @@ class GuardarView(APIView):
                     ubicacion_puerto = (puerto.latitud, puerto.longitud)
                     probabilidadFallaSismo_inicial = 0
                     probabilidadFallaSismo_final = 0
+                    
+                    # Cálculo de las probabilidades para Bahía
+                    if puerto.sector:
+                        bahia = puerto.sector.id
+                        restricciones = obtener_restricciones(bahia)
+                        
+                        restricciones_filtradas = [
+                            restriccion for restriccion in restricciones
+                            if restriccion['bahia'] == bahia
+                        ]
+                        probabilidadFallaBahia = 100 if restricciones_filtradas else 0
+                    else:
+                        probabilidadFallaBahia = 0
                     
                     # Cálculo de la probabilidad para Sismos
                     for sismo in sismos:
@@ -416,6 +428,7 @@ class GuardarView(APIView):
                         'ProbabilidadFallaLluvia': round(probabilidadFallaLluvia, 2),
                         'ProbabilidadFallaOleaje': round(probabilidadFallaOleaje, 2),
                         'ProbabilidadFallaSismo': round(probabilidadFallaSismo_final, 2),
+                        'probabilidadFallaBahia': round(probabilidadFallaBahia,2),
                     }
                     contenido.append(puerto_data)
                 except Exception as e:
@@ -434,47 +447,3 @@ class GuardarView(APIView):
                 contenido.append(puerto_data)
 
         return Response(contenido)
-
-
-
-    # def guardar_probabilidades(request):
-    #
-    #
-    #     if request.method == 'POST':
-    #
-    #         try:
-    #             data = json.loads(request.body)
-    #             sismos = data.get('sismos', [])
-    #
-    #             if not sismos or not isinstance(sismos, list):
-    #                 return JsonResponse({'message': 'Datos inválidos'}, status=400)
-    #
-    #             # Definir la ruta donde se guardará el archivo
-    #             ruta_carpeta = os.path.join(os.path.dirname(__file__), 'archivos')
-    #             if not os.path.exists(ruta_carpeta):
-    #                 os.makedirs(ruta_carpeta)
-    #
-    #             ruta_archivo = os.path.join(ruta_carpeta, 'sismologia_probabilidades.csv')
-    #
-    #             # Escribir el archivo CSV
-    #             with open(ruta_archivo, mode='w', newline='', encoding='utf-8') as archivo_csv:
-    #                 escritor_csv = csv.writer(archivo_csv)
-    #                 # Escribir encabezados
-    #                 escritor_csv.writerow(['Fecha y Ubicación', 'Profundidad (km)', 'Magnitud', 'Probabilidad de Falla'])
-    #                 # Escribir datos de sismos
-    #                 for sismo in sismos:
-    #                     escritor_csv.writerow([
-    #                         sismo.get('fecha_ubicacion', 'N/A'),
-    #                         sismo.get('profundidad', 'N/A'),
-    #                         sismo.get('magnitud', 'N/A'),
-    #                         sismo.get('probabilidadFalla', 'N/A')
-    #                     ])
-    #
-    #             print('Archivo guardado en:', ruta_archivo)
-    #             return JsonResponse({'message': 'Archivo generado exitosamente'})
-    #
-    #         except Exception as e:
-    #             print('Error al procesar la solicitud:', e)
-    #             return JsonResponse({'message': 'Error al procesar la solicitud'}, status=500)
-    #     else:
-    #         return JsonResponse({'message': 'Método no permitido'}, status=405)
