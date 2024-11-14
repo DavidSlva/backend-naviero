@@ -14,7 +14,7 @@ from collection_manager.models import Sector, Puerto
 from application.services import consultar_datos_manifiesto, generar_infraestructura, get_current_wave, \
     get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, \
     obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data, \
-    get_best_routes, get_best_route
+    get_best_routes, get_best_route, get_best_route_metaheuristic, calcular_probabilidad_falla_puerto
 from application.services import obtener_restricciones
 from application.serializers import GrafoInfraestructuraSerializer, SectorSerializer, SismoSerializer, WaveSerializer
 from drf_spectacular.utils import extend_schema
@@ -99,6 +99,10 @@ class GetBestRoutesView(APIView) :
             end_time = time.time()
             total_time = end_time - start_time
             print(puerto_mejor)
+
+            metaurisitca = get_best_route_metaheuristic(origin_puerto, destination_puertos)
+            print(metaurisitca)
+            optimizacion = calcular_probabilidad_falla_puerto()
             # Retornar los datos de las rutas en formato JSON
             return Response({
                 "puerto": PuertoSerializer(puerto_mejor).data,
@@ -505,7 +509,6 @@ class SimularView(APIView):
         body_unicode = request.body.decode('utf-8')
         body_data = json.loads(body_unicode)
         opciones_seleccionadas = request.data.get('opciones', [])
-        print(opciones_seleccionadas)
 
         
         # Lista para almacenar los datos de los puertos
