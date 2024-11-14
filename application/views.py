@@ -1,4 +1,6 @@
 import random
+import time
+
 from django.db.models import Q, F
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -11,7 +13,8 @@ from api.models import Puertos
 from collection_manager.models import Sector, Puerto
 from application.services import consultar_datos_manifiesto, generar_infraestructura, get_current_wave, \
     get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, \
-    obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data, get_best_routes
+    obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data, \
+    get_best_routes, get_best_route
 from application.services import obtener_restricciones
 from application.serializers import GrafoInfraestructuraSerializer, SectorSerializer, SismoSerializer, WaveSerializer
 from drf_spectacular.utils import extend_schema
@@ -79,28 +82,28 @@ class GetGrafoInfraestructuraView(APIView):
 class GetBestRoutesView(APIView) :
     def get(self, request, origin, format=None) :  # Agrega `origin` como parámetro de la función
         try :
-            # Obtener la información de los puertos
-            puertos = Puerto.objects.all()
-
             # Obtener el puerto de origen usando el parámetro `origin`
             origin_puerto = Puerto.objects.get(codigo=origin)
 
             # Excluir los puertos con latitud o longitud `NaN` o `NULL`
             destination_puertos = Puerto.objects.filter(
-                pais__codigo='997',
+                pais__codigo=997,
                 tipo='Puerto marítimo'
-            ).exclude(
-                Q(latitud__isnull=True) |
-                Q(longitud__isnull=True) |
-                Q(latitud__gt=F('latitud')) |  # Detecta NaN en latitud
-                Q(longitud__gt=F('longitud'))  # Detecta NaN en longitud
             )
 
-            # Obtener las rutas más cortas desde el origen a los destinos
-            best_routes = get_best_routes(origin_puerto, destination_puertos)
 
+            # Obtener las rutas más cortas desde el origen a los destinos
+            start_time = time.time()
+            best_route = get_best_route(origin_puerto, destination_puertos)
+            puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
+            end_time = time.time()
+            total_time = end_time - start_time
+            print(puerto_mejor)
             # Retornar los datos de las rutas en formato JSON
-            return Response(best_routes, status=status.HTTP_200_OK)
+            return Response({
+                "puerto": PuertoSerializer(puerto_mejor).data,
+                "tiempo_total": total_time
+            }, status=status.HTTP_200_OK)
 
         except Puerto.DoesNotExist :
             return Response(

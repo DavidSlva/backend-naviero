@@ -753,67 +753,132 @@ def create_rutas(puerto_origen, puertos_destino) :
     return rutas, distancias_totales
 
 
-def get_best_routes(origin_puerto, destination_puertos) :
+
+def get_best_routes(origin_puerto, destination_puertos):
     """
-    Calcula la mejor ruta (distancia mínima) desde un puerto origen a múltiples puertos destino utilizando pgr_dijkstra.
+    Calcula las rutas más cortas desde el puerto de origen a los puertos de destino utilizando el algoritmo de Dijkstra de NetworkX.
 
-    Args:
-        origin_puerto (Puerto): Instancia del puerto de origen.
-        destination_puertos (QuerySet o lista de Puertos): Conjunto de puertos de destino.
-
-    Returns:
-        dict: Un diccionario donde las claves son los códigos de los puertos destino y los valores son
-              diccionarios con detalles de la ruta (nodos en el camino, aristas, distancia total).
+    :param origin_puerto: Objeto Puerto que representa el puerto de origen.
+    :param destination_puertos: QuerySet de objetos Puerto que representan los puertos de destino.
+    :return: Lista de diccionarios con 'destination', 'total_cost' y opcionalmente 'path'.
     """
-    origin_id = origin_puerto.codigo
-    destination_ids = [p.codigo for p in destination_puertos]
+    try:
+        # Crear un grafo dirigido o no dirigido según tus necesidades
+        # Aquí asumimos que las rutas son bidireccionales; si no, cambia a nx.DiGraph()
+        G = nx.Graph()
 
-    best_routes = {}
+        # Obtener todas las rutas de la base de datos
+        rutas = Ruta.objects.all()
 
-    # Crear una lista única de destinos para optimizar consultas
-    unique_dest_ids = set(destination_ids)
+        # Agregar aristas al grafo con las distancias como pesos
+        for ruta in rutas:
+            G.add_edge(
+                ruta.origen.codigo,
+                ruta.destino.codigo,
+                weight=ruta.distancia
+            )
 
-    with connection.cursor() as cursor :
-        for dest_id in unique_dest_ids :
-            if origin_id == dest_id :
-                best_routes[dest_id] = {
-                    'path_nodes' : [origin_id],
-                    'path_edges' : [],
-                    'total_cost' : 0.0,
-                    'rutas' : []
-                }
+        # Obtener los códigos de los puertos de destino
+        destination_codes = [puerto.codigo for puerto in destination_puertos]
+
+        best_routes = []
+
+        # Calcular la ruta más corta a cada destino
+        for dest_code in destination_codes:
+            if dest_code == origin_puerto.codigo:
+                # La distancia al mismo puerto es 0
+                best_routes.append({
+                    'destination': dest_code,
+                    'total_cost': 0,
+                    'path': [dest_code],
+                })
                 continue
 
-            cursor.execute("""
-                SELECT seq, node, edge, cost
-                FROM pgr_dijkstra(
-                    'SELECT id, origen_id AS source, destino_id AS target, distancia AS cost FROM collection_manager_ruta',
-                    %s,
-                    %s,
-                    directed := true
-                )
-                ORDER BY seq;
-            """, [origin_id, dest_id])
+            try:
+                # Obtener la distancia más corta
+                total_cost = nx.dijkstra_path_length(G, origin_puerto.codigo, dest_code, weight='weight')
 
-            result = cursor.fetchall()
+                # Obtener el camino más corto (opcional)
+                path = nx.dijkstra_path(G, origin_puerto.codigo, dest_code, weight='weight')
 
-            if not result :
-                best_routes[dest_id] = None
-                continue
+                best_routes.append({
+                    'destination': dest_code,
+                    'total_cost': total_cost,
+                    'path': path,  # Puedes eliminar esta línea si no necesitas el camino completo
+                })
+            except nx.NetworkXNoPath:
+                # No existe una ruta entre el origen y el destino
+                best_routes.append({
+                    'destination': dest_code,
+                    'total_cost': None,  # O algún indicador de que no hay ruta
+                    'path': None,
+                })
 
-            # Extraer la información de la ruta
-            path_nodes = [row[1] for row in result]
-            path_edges = [row[2] for row in result if row[2] != 0]  # Excluir edges con ID 0 (inicio)
-            total_cost = sum(row[3] for row in result)
+        return best_routes
 
-            # Obtener las instancias de Ruta correspondientes a las aristas en el camino
-            rutas = Ruta.objects.filter(id__in=path_edges)
+    except Exception as e:
+        logger.error(f"Error al calcular las rutas más cortas con NetworkX: {e}")
+        raise
 
-            best_routes[dest_id] = {
-                'path_nodes' : path_nodes,
-                'path_edges' : path_edges,
-                'total_cost' : total_cost,
-                'rutas' : rutas
+
+def get_best_route(origin_puerto, destination_puertos) :
+    """
+    Calcula la ruta más corta desde el puerto de origen a los puertos de destino utilizando el algoritmo de Dijkstra de NetworkX.
+
+    :param origin_puerto: Objeto Puerto que representa el puerto de origen.
+    :param destination_puertos: QuerySet de objetos Puerto que representan los puertos de destino.
+    :return: Diccionario con 'destination', 'total_cost' y 'path' de la ruta más corta.
+    """
+    try :
+        # Crear un grafo no dirigido; si tus rutas son unidireccionales, utiliza nx.DiGraph()
+        G = nx.Graph()
+
+        # Obtener todas las rutas de la base de datos
+        rutas = Ruta.objects.all()
+
+        # Agregar aristas al grafo con las distancias como pesos
+        for ruta in rutas :
+            G.add_edge(
+                ruta.origen.codigo,
+                ruta.destino.codigo,
+                weight=ruta.distancia
+            )
+
+        # Obtener los códigos de los puertos de destino
+        destination_codes = set(puerto.codigo for puerto in destination_puertos)
+
+        # Calcular todas las distancias y caminos desde el origen
+        # Esto es más eficiente que calcular por separado para cada destino
+        lengths, paths = nx.single_source_dijkstra(G, origin_puerto.codigo, weight='weight')
+
+        # Filtrar solo los destinos que están en destination_codes
+        # y que tienen una ruta disponible
+        available_routes = {
+            dest : (lengths[dest], paths[dest])
+            for dest in destination_codes
+            if dest in lengths
+        }
+
+        if not available_routes :
+            # No hay rutas disponibles hacia ninguno de los destinos
+            return {
+                'destination' : None,
+                'total_cost' : None,
+                'path' : None,
             }
 
-    return best_routes
+        # Encontrar la ruta con la menor distancia total
+        min_dest, (min_cost, min_path) = min(
+            available_routes.items(),
+            key=lambda item : item[1][0]
+        )
+
+        return {
+            'destination' : min_dest,
+            'total_cost' : min_cost,
+            'path' : min_path,
+        }
+
+    except Exception as e :
+        logger.error(f"Error al calcular la ruta más corta con NetworkX: {e}")
+        raise
