@@ -24,6 +24,7 @@ geopy = "~=2.4"
 matplotlib = "~=3.9.2"
 rarfile = "~=4.2"
 searoute = "*"
+django-filter = "*"
 
 [dev-packages]
 

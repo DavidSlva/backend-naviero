@@ -129,7 +129,7 @@ def construir_grafo():
 
     print("Grafo guardado en el archivo.")
     return G
-def inhabilitar_puerto(G, codigo_puerto, puerto_origen):
+def inhabilitar_puerto(G, codigo_puerto):
     """
     Inhabilita un puerto en la base de datos.
     """
@@ -236,6 +236,7 @@ def generar_infraestructura(puerto_origen: Puerto, puerto_destino: Puerto):
     G = construir_grafo()
     puerto_destino = puerto_destino.codigo
     puerto_origen = puerto_origen.codigo
+    print(puerto_destino, 'puerto origen')
     inhabilitar_puerto(G, str(puerto_destino))
     vecinos_origen = obtener_vecinos_puerto(G, str(puerto_origen))
 
