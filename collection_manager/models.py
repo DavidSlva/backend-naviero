@@ -1,5 +1,6 @@
 from django.db import models
 from simple_history.models import HistoricalRecords
+from django.utils.translation import gettext_lazy as _
 
 class Pais(models.Model):
     codigo = models.IntegerField(primary_key=True)
@@ -48,6 +49,13 @@ class Sector(models.Model):
         ordering = ['nombre']
 
 class Puerto(models.Model):
+    class TipoCarga(models.TextChoices):
+        GRANEL = 'GR', _('Granel')
+        CONTENEDOR = 'CO', _('Contenedor')
+        LIQUIDO = 'LI', _('Líquido')
+        REFRIGERADO = 'RE', _('Refrigerado')
+        OTRO = 'OT', _('Otro')
+
     codigo = models.IntegerField(primary_key=True)
     nombre = models.CharField(max_length=255)
     tipo = models.CharField(max_length=255)
@@ -55,19 +63,29 @@ class Puerto(models.Model):
     latitud = models.FloatField(null=True)
     longitud = models.FloatField(null=True)
     zona_geografica = models.CharField(max_length=255, null=True, blank=True)
-    history = HistoricalRecords()
+    history = HistoricalRecords()  # Elimina esta línea
     sector = models.ForeignKey(Sector, on_delete=models.CASCADE, null=True, blank=True)
     important = models.BooleanField(default=False)
     eslora_max = models.FloatField(null=True, blank=True)
+    tipos_cargas = models.CharField(
+        max_length=2,
+        choices=TipoCarga.choices,
+        default=None,
+        blank=True,
+        null=True
+    )
 
     def __str__(self):
         return f"{self.nombre} ({self.codigo})"
+
     def __repr__(self):
         return f"{self.nombre} ({self.codigo})"
+
     class Meta:
         verbose_name = "Puerto"
         verbose_name_plural = "Puertos"
         ordering = ['nombre']
+
 
 class Ruta(models.Model):
     origen = models.ForeignKey(Puerto, on_delete=models.CASCADE, related_name='ruta_origen')
