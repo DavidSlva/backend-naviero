@@ -54,9 +54,11 @@ class Puerto(models.Model):
     pais = models.ForeignKey(Pais, on_delete=models.CASCADE)
     latitud = models.FloatField(null=True)
     longitud = models.FloatField(null=True)
-    zona_geografica = models.CharField(max_length=255, null=True)
-    history = HistoricalRecords() 
-    sector = models.ForeignKey(Sector, on_delete=models.CASCADE, null=True)
+    zona_geografica = models.CharField(max_length=255, null=True, blank=True)
+    history = HistoricalRecords()
+    sector = models.ForeignKey(Sector, on_delete=models.CASCADE, null=True, blank=True)
+    important = models.BooleanField(default=False)
+    eslora_max = models.FloatField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.nombre} ({self.codigo})"
@@ -66,6 +68,15 @@ class Puerto(models.Model):
         verbose_name = "Puerto"
         verbose_name_plural = "Puertos"
         ordering = ['nombre']
+
+class Ruta(models.Model):
+    origen = models.ForeignKey(Puerto, on_delete=models.CASCADE, related_name='ruta_origen')
+    destino = models.ForeignKey(Puerto, on_delete=models.CASCADE, related_name='ruta_destino')
+    distancia = models.FloatField()
+    historial = HistoricalRecords()
+
+    def __str__(self):
+        return f"{self.origen} -> {self.destino} ({self.distancia} km)"
 
 class TipoOperacion(models.Model):
     codigo = models.IntegerField(primary_key=True)

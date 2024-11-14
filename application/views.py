@@ -1,11 +1,16 @@
+from django.db.models import Q, F
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+
+from api.models import Puertos
 from collection_manager.models import Sector, Puerto
-from application.services import consultar_datos_manifiesto, generar_infraestructura, get_current_wave, get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data
+from application.services import consultar_datos_manifiesto, generar_infraestructura, get_current_wave, \
+    get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, \
+    obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data, get_best_routes
 from application.services import obtener_restricciones
 from application.serializers import GrafoInfraestructuraSerializer, SectorSerializer, SismoSerializer, WaveSerializer
 from drf_spectacular.utils import extend_schema
@@ -68,6 +73,45 @@ class GetGrafoInfraestructuraView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class GetBestRoutesView(APIView) :
+    def get(self, request, origin, format=None) :  # Agrega `origin` como parámetro de la función
+        try :
+            # Obtener la información de los puertos
+            puertos = Puerto.objects.all()
+
+            # Obtener el puerto de origen usando el parámetro `origin`
+            origin_puerto = Puerto.objects.get(codigo=origin)
+
+            # Excluir los puertos con latitud o longitud `NaN` o `NULL`
+            destination_puertos = Puerto.objects.filter(
+                pais__codigo='997',
+                tipo='Puerto marítimo'
+            ).exclude(
+                Q(latitud__isnull=True) |
+                Q(longitud__isnull=True) |
+                Q(latitud__gt=F('latitud')) |  # Detecta NaN en latitud
+                Q(longitud__gt=F('longitud'))  # Detecta NaN en longitud
+            )
+
+            # Obtener las rutas más cortas desde el origen a los destinos
+            best_routes = get_best_routes(origin_puerto, destination_puertos)
+
+            # Retornar los datos de las rutas en formato JSON
+            return Response(best_routes, status=status.HTTP_200_OK)
+
+        except Puerto.DoesNotExist :
+            return Response(
+                {'status' : 'error', 'message' : 'El puerto de origen no existe.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e :
+            # Registrar el error y retornar un mensaje genérico
+            logger.error(f"Error al obtener las rutas más cortas: {e}")
+            return Response(
+                {'status' : 'error', 'message' : 'Error al obtener las rutas más cortas.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 class GetSismosChileView(APIView):
     """
     Vista para obtener la información de los sismos chilenos.
@@ -82,7 +126,7 @@ class GetSismosChileView(APIView):
         try:
             # Obtener la nave de la bahía
             sismos = obtener_sismos_chile()
-            
+
             # Retornar los datos de la nave en formato JSON
             return Response(sismos, status=status.HTTP_200_OK)
         

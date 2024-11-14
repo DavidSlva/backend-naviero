@@ -1,10 +1,16 @@
 from django.urls import path
 from .views import GetCurrentWaveView, GetCurrentWeatherView, GetDatosManifiesto, GetGrafoInfraestructuraView, \
     GetSismosChileView, ObtenerNaveView, PuertoNavesRecalandoView, PuertoSanAntonioView, UbicacionApiView, \
-    ObtenerRestriccionesView, ObtenerNavesView, GuardarView
+    ObtenerRestriccionesView, ObtenerNavesView, GuardarView, GetBestRoutesView
 
 urlpatterns = [
+    path(
+        'grafos/infraestructura/mejores_rutas/<int:origin>/',
+        GetBestRoutesView.as_view(),
+        name='obtener_mejores_rutas'
+    ),
     path('grafos/infraestructura/', GetGrafoInfraestructuraView.as_view(), name='obtener_grafo_infraestructura'),
+
     path('puerto/naves/san_antonio/', PuertoSanAntonioView.as_view(), name='obtener_naves_san_antonio'),
     path('restricciones/bahias/<int:id_bahia>/', ObtenerRestriccionesView.as_view(),
          name='obtener_restricciones de una bahia'),
