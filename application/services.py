@@ -129,7 +129,7 @@ def construir_grafo():
 
     print("Grafo guardado en el archivo.")
     return G
-def inhabilitar_puerto(G, codigo_puerto):
+def inhabilitar_puerto(G, codigo_puerto, puerto_origen):
     """
     Inhabilita un puerto en la base de datos.
     """

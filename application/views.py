@@ -8,9 +8,16 @@ from application.services import obtener_restricciones
 from application.serializers import GrafoInfraestructuraSerializer, SectorSerializer, SismoSerializer, WaveSerializer
 from drf_spectacular.utils import extend_schema
 import logging
+from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiRequest
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse
+import requests
+
+from django.http import JsonResponse
+import os
+import csv
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +192,7 @@ class GetCurrentWeatherView(APIView):
             return Response(weather, status=status.HTTP_200_OK)
         except Puerto.DoesNotExist:
             # Registrar el error y retornar un mensaje genérico
-            logger.error(f"Error al obtener la información actual del clima de un puerto: {e}")
+            logger.error(f"Error al obtener la información actual del clima de un puerto: ")
             return Response(
                 {'status': 'error', 'message': 'Error al obtener la información actual del clima de un puerto.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -333,3 +340,93 @@ class ObtenerRestriccionesView(APIView):
                 {'status': 'error', 'message': 'Error al obtener los datos de la restricción.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class GuardarView(APIView) :
+
+    def get(self, request) :
+        # Filtrar los puertos de Chile que son puertos marítimos
+        puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
+
+        # Obtener sismos en Chile (aunque no se usa en este ejemplo, puedes integrarlo si lo necesitas)
+        sismos = obtener_sismos_chile()
+
+        # Lista para almacenar las líneas del archivo de texto
+        contenido = []
+
+        for puerto in puertos_chile :
+            if puerto.latitud and puerto.longitud :
+                try :
+                    weather = get_current_weather(puerto.latitud, puerto.longitud)
+                    wave_data = get_current_wave(puerto.latitud, puerto.longitud)
+
+                    # Añadir información al contenido
+                    contenido.append(f"Puerto: {puerto.nombre}\n")
+                    contenido.append(f"País: {puerto.pais.nombre}\n")
+                    contenido.append(f"Clima: {weather}\n")
+                    contenido.append(f"Datos de Olas: {wave_data}\n")
+                    contenido.append("-" * 40 + "\n")  # Separador entre puertos
+                except Exception as e :
+                    # Manejar excepciones y registrar el error en el contenido
+                    contenido.append(f"Puerto: {puerto.nombre}\n")
+                    contenido.append(f"Error al obtener datos: {str(e)}\n")
+                    contenido.append("-" * 40 + "\n")
+            else :
+                # Manejar casos donde faltan latitud o longitud
+                contenido.append(f"Puerto: {puerto.nombre}\n")
+                contenido.append("Error: Latitud o longitud faltante.\n")
+                contenido.append("-" * 40 + "\n")
+
+        # Unir todas las líneas en una sola cadena de texto
+        texto_final = "\n".join(contenido)
+
+        # Crear la respuesta HTTP con el contenido de texto
+        respuesta = HttpResponse(texto_final, content_type='text/plain')
+        respuesta['Content-Disposition'] = 'attachment; filename="datos_puertos.txt"'
+
+        return respuesta
+
+
+
+
+    # def guardar_probabilidades(request):
+    #
+    #
+    #     if request.method == 'POST':
+    #
+    #         try:
+    #             data = json.loads(request.body)
+    #             sismos = data.get('sismos', [])
+    #
+    #             if not sismos or not isinstance(sismos, list):
+    #                 return JsonResponse({'message': 'Datos inválidos'}, status=400)
+    #
+    #             # Definir la ruta donde se guardará el archivo
+    #             ruta_carpeta = os.path.join(os.path.dirname(__file__), 'archivos')
+    #             if not os.path.exists(ruta_carpeta):
+    #                 os.makedirs(ruta_carpeta)
+    #
+    #             ruta_archivo = os.path.join(ruta_carpeta, 'sismologia_probabilidades.csv')
+    #
+    #             # Escribir el archivo CSV
+    #             with open(ruta_archivo, mode='w', newline='', encoding='utf-8') as archivo_csv:
+    #                 escritor_csv = csv.writer(archivo_csv)
+    #                 # Escribir encabezados
+    #                 escritor_csv.writerow(['Fecha y Ubicación', 'Profundidad (km)', 'Magnitud', 'Probabilidad de Falla'])
+    #                 # Escribir datos de sismos
+    #                 for sismo in sismos:
+    #                     escritor_csv.writerow([
+    #                         sismo.get('fecha_ubicacion', 'N/A'),
+    #                         sismo.get('profundidad', 'N/A'),
+    #                         sismo.get('magnitud', 'N/A'),
+    #                         sismo.get('probabilidadFalla', 'N/A')
+    #                     ])
+    #
+    #             print('Archivo guardado en:', ruta_archivo)
+    #             return JsonResponse({'message': 'Archivo generado exitosamente'})
+    #
+    #         except Exception as e:
+    #             print('Error al procesar la solicitud:', e)
+    #             return JsonResponse({'message': 'Error al procesar la solicitud'}, status=500)
+    #     else:
+    #         return JsonResponse({'message': 'Método no permitido'}, status=405)
