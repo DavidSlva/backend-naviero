@@ -14,7 +14,7 @@ openpyxl = "~=3.1.5"
 bs4 = "~=0.0.2"
 drf-spectacular = "~=0.27.2"
 lxml = "~=5.3"
-python-dotenv = "~=1.0.1"
+python-dotenv = "*"
 gunicorn = "~=23.0"
 tqdm = "~=4.67"
 django-cors-headers = "~=4.6"
@@ -25,6 +25,7 @@ matplotlib = "~=3.9.2"
 rarfile = "~=4.2"
 searoute = "*"
 django-filter = "*"
+load-dotenv = "*"
 
 [dev-packages]
 

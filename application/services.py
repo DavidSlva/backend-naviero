@@ -274,6 +274,36 @@ def generar_infraestructura(puerto_origen: Puerto, puerto_destino: Puerto) :
 
     return None
 
+def generar_infraestructura_custom(puerto_origen: Puerto, puerto_destino: Puerto, puertos_inhabilitados: list) :
+    """
+    Genera la infraestructura para un puerto cerrado
+    """
+    G = construir_grafo()
+    puerto_destino = puerto_destino.codigo
+    puerto_origen = puerto_origen.codigo
+    print(puerto_destino, 'puerto origen')
+
+    for inhabitado in puertos_inhabilitados:
+        inhabilitar_puerto(G, str(inhabitado))
+
+    inhabilitar_puerto(G, str(puerto_destino))
+    vecinos_origen = obtener_vecinos_puerto(G, str(puerto_origen))
+
+    if puerto_destino in vecinos_origen :
+        vecinos_origen.remove(puerto_destino)
+
+    puertos_alternativos = []
+    for puerto_alternativo in vecinos_origen :
+        # Como son vecinos directos, la ruta es simplemente [puerto_origen, puerto_alternativo]
+        camino = [puerto_origen, puerto_alternativo]
+        puertos_alternativos.append((puerto_alternativo, camino))
+
+    if puertos_alternativos :
+        html = visualizar_rutas_alternativas(G, puerto_origen, puertos_alternativos)
+        return html
+
+    return None
+
 
 def obtener_restricciones(id_bahia) :
     """
@@ -1001,118 +1031,6 @@ def get_best_route_metaheuristic(origin_puerto, destination_puertos):
 
     except Exception as e:
         logger.error(f"Error al calcular la ruta con ACO: {e}")
-        raise
-
-    """
-    Calcula la ruta óptima desde el puerto de origen a los puertos de destino utilizando
-    el modelado de optimización con CPLEX, considerando las variables de los metadatos y amenazas,
-    y las condiciones del usuario como restricciones.
-
-    :param origin_puerto: Objeto Puerto que representa el puerto de origen.
-    :param destination_puertos: QuerySet de objetos Puerto que representan los puertos de destino.
-    :return: Diccionario con 'destination', 'total_cost' y 'path' de la mejor ruta encontrada.
-    """
-    try:
-        from docplex.mp.model import Model
-
-        # Crear un modelo de optimización
-        mdl = Model(name='RouteOptimization')
-
-        # Crear un grafo no dirigido
-        G = nx.Graph()
-
-        # Obtener todas las rutas de la base de datos
-        rutas = Ruta.objects.all()
-
-        # Agregar aristas al grafo con las distancias como pesos
-        for ruta in rutas:
-            G.add_edge(
-                ruta.origen.codigo,
-                ruta.destino.codigo,
-                weight=ruta.distancia
-            )
-
-        # Obtener los códigos de los puertos de destino
-        destination_codes = set(puerto.codigo for puerto in destination_puertos)
-
-        # Variables de decisión: x[i,j] = 1 si la ruta (i,j) está en el camino óptimo
-        x = mdl.binary_var_dict(G.edges(), name='x')
-
-        # Función objetivo: minimizar la suma de las distancias de las rutas seleccionadas
-        mdl.minimize(mdl.sum(G[i][j]['weight'] * x[(i, j)] for i, j in G.edges()))
-
-        # Restricciones de flujo
-        for node in G.nodes():
-            flujo_entrada = mdl.sum(x[(i, node)] for i in G.neighbors(node) if (i, node) in x)
-            flujo_salida = mdl.sum(x[(node, j)] for j in G.neighbors(node) if (node, j) in x)
-            if node == origin_puerto.codigo:
-                mdl.add_constraint(flujo_salida - flujo_entrada == 1)
-            elif node in destination_codes:
-                mdl.add_constraint(flujo_entrada - flujo_salida == 1)
-            else:
-                mdl.add_constraint(flujo_entrada - flujo_salida == 0)
-
-        # Obtener las probabilidades de falla de los puertos
-        puertos = Puerto.objects.all()
-        port_failure_probabilities = {}
-        for puerto in puertos:
-            failure_probability = calcular_probabilidad_falla_puerto(puerto)
-            port_failure_probabilities[puerto.codigo] = failure_probability
-
-        # Condiciones del usuario como restricciones
-        failure_threshold = 0.5  # Por ejemplo, evitar puertos con más del 50% de probabilidad de falla
-        for node in G.nodes():
-            if port_failure_probabilities.get(node, 0.0) > failure_threshold:
-                # Eliminar todas las aristas conectadas a este nodo
-                for neighbor in list(G.neighbors(node)):
-                    if (node, neighbor) in x:
-                        mdl.add_constraint(x[(node, neighbor)] == 0)
-                    if (neighbor, node) in x:
-                        mdl.add_constraint(x[(neighbor, node)] == 0)
-
-        # Resolver el modelo
-        solution = mdl.solve()
-
-        if solution:
-            # Obtener la ruta óptima
-            path_edges = [edge for edge in x if x[edge].solution_value > 0.5]
-            # Construir el camino a partir de las aristas seleccionadas
-            path_graph = nx.Graph()
-            path_graph.add_edges_from(path_edges)
-            paths = []
-            for dest in destination_codes:
-                try:
-                    path = nx.shortest_path(path_graph, source=origin_puerto.codigo, target=dest)
-                    paths.append((path, dest))
-                except nx.NetworkXNoPath:
-                    continue
-
-            if not paths:
-                return {
-                    'destination': None,
-                    'total_cost': None,
-                    'path': None,
-                }
-
-            # Seleccionar el camino más corto
-            best_path_info = min(paths, key=lambda p: sum(G[p[0][i]][p[0][i+1]]['weight'] for i in range(len(p[0])-1)))
-            best_path, best_destination = best_path_info
-            total_cost = sum(G[best_path[i]][best_path[i+1]]['weight'] for i in range(len(best_path)-1))
-            return {
-                'destination': best_destination,
-                'total_cost': total_cost,
-                'path': best_path,
-            }
-        else:
-            logger.error("No se encontró solución al modelo de optimización con CPLEX")
-            return {
-                'destination': None,
-                'total_cost': None,
-                'path': None,
-            }
-
-    except Exception as e:
-        logger.error(f"Error al calcular la ruta con CPLEX: {e}")
         raise
 
 
