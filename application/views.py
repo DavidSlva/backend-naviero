@@ -1,11 +1,20 @@
+import random
+import time
+
+from django.db.models import Q, F
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+
+from api.models import Puertos
 from collection_manager.models import Sector, Puerto
-from application.services import consultar_datos_manifiesto, generar_infraestructura, get_current_wave, get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data
+from application.services import consultar_datos_manifiesto, generar_infraestructura, get_current_wave, \
+    get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, \
+    obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data, \
+    get_best_routes, get_best_route, get_best_route_metaheuristic, calcular_probabilidad_falla_puerto
 from application.services import obtener_restricciones
 from application.serializers import GrafoInfraestructuraSerializer, SectorSerializer, SismoSerializer, WaveSerializer
 from drf_spectacular.utils import extend_schema
@@ -18,6 +27,7 @@ from django.views import View
 from django.http import HttpResponse
 import requests
 from geopy.distance import geodesic
+from collection_manager.serializer import PuertoSerializer
 
 from django.http import JsonResponse
 import os
@@ -68,6 +78,53 @@ class GetGrafoInfraestructuraView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class GetBestRoutesView(APIView) :
+    def get(self, request, origin, type, format=None) :  # Agrega `origin` como parámetro de la función
+        try :
+            start_time = time.time()
+            # Obtener el puerto de origen usando el parámetro `origin`
+            origin_puerto = Puerto.objects.get(codigo=origin)
+
+            # Excluir los puertos con latitud o longitud `NaN` o `NULL`
+            destination_puertos = Puerto.objects.filter(
+                pais__codigo=997,
+                tipo='Puerto marítimo'
+            )
+
+
+            # Obtener las rutas más cortas desde el origen a los destinos
+            if type == '1':
+                best_route = get_best_route(origin_puerto, destination_puertos)
+                puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
+            if type == '2':
+                best_route = get_best_route(origin_puerto, destination_puertos)
+                puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
+            if type == '3':
+                best_route = get_best_route_metaheuristic(origin_puerto, destination_puertos)
+                print(best_route)
+
+            end_time = time.time()
+            total_time = end_time - start_time
+
+            # Retornar los datos de las rutas en formato JSON
+            return Response({
+                "puerto": PuertoSerializer(puerto_mejor).data,
+                "tiempo_total": total_time
+            }, status=status.HTTP_200_OK)
+
+        except Puerto.DoesNotExist :
+            return Response(
+                {'status' : 'error', 'message' : 'El puerto de origen no existe.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e :
+            # Registrar el error y retornar un mensaje genérico
+            logger.error(f"Error al obtener las rutas más cortas: {e}")
+            return Response(
+                {'status' : 'error', 'message' : 'Error al obtener las rutas más cortas.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 class GetSismosChileView(APIView):
     """
     Vista para obtener la información de los sismos chilenos.
@@ -82,7 +139,7 @@ class GetSismosChileView(APIView):
         try:
             # Obtener la nave de la bahía
             sismos = obtener_sismos_chile()
-            
+
             # Retornar los datos de la nave en formato JSON
             return Response(sismos, status=status.HTTP_200_OK)
         
@@ -348,41 +405,45 @@ class ObtenerRestriccionesView(APIView):
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class GuardarView(APIView) :
+class GuardarView(APIView):
 
-    def get(self, request) :
+    def get(self, request):
         # Filtrar los puertos de Chile que son puertos marítimos
         puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
         
-        # Obtener las restricciones de la bahía
-        #restricciones = obtener_restricciones(bahia.id)
-
-        # Lista para almacenar las líneas del archivo de texto
+        # Lista para almacenar los datos de los puertos
         contenido = []
         
-
-        for puerto in puertos_chile :
-            if puerto.latitud and puerto.longitud :
-                try :
-                    #bahias = puerto.sector
-                    #print(f"ID BAHIAS: {bahias}")
-                    
+        for puerto in puertos_chile:
+            if puerto.latitud and puerto.longitud:
+                try:
                     weather = get_current_weather(puerto.latitud, puerto.longitud)
                     wave_data = get_current_wave(puerto.latitud, puerto.longitud)
                     sismos = obtener_sismos_chile()
                     
-                    climaHoy = weather.get('current', {})
                     hourly_data = weather.get('hourly', {})
                     maxWaveHeight = max(oleaje.get('wave_height', 0) for oleaje in wave_data)
                     
-                    
-                    #Distancia maxima para sismos
+                    # Distancia máxima para sismos
                     distancia_maxima_km = 500
                     ubicacion_puerto = (puerto.latitud, puerto.longitud)
                     probabilidadFallaSismo_inicial = 0
                     probabilidadFallaSismo_final = 0
                     
-                    #Calculo de la probabilidad para Sismos
+                    # Cálculo de las probabilidades para Bahía
+                    if puerto.sector:
+                        bahia = puerto.sector.id
+                        restricciones = obtener_restricciones(bahia)
+                        
+                        restricciones_filtradas = [
+                            restriccion for restriccion in restricciones
+                            if restriccion['bahia'] == bahia
+                        ]
+                        probabilidadFallaBahia = 100 if restricciones_filtradas else 0
+                    else:
+                        probabilidadFallaBahia = 0
+                    
+                    # Cálculo de la probabilidad para Sismos
                     for sismo in sismos:
                         epicentro = (sismo.get('latitud'), sismo.get('longitud'))
                         try:
@@ -402,50 +463,152 @@ class GuardarView(APIView) :
                             else:
                                 probabilidadFallaSismo = ((magnitud - 5)/(7 - 5))*100
                                 
-                            probabilidadFallaSismo_final = max(probabilidadFallaSismo_inicial, probabilidadFallaSismo) 
-                                
+                            probabilidadFallaSismo_final = max(probabilidadFallaSismo_inicial, probabilidadFallaSismo)
                     
-                    #Calculo de la probabilidad para LLuvia
+                    # Cálculo de la probabilidad para Lluvia
                     precipTotal = sum(hora.get('rain', {}).get('1h', 0) for hora in hourly_data)
                     precipMax = min(precipTotal, 150)
-                    probabilidadFalla = (precipMax/150)*100
+                    probabilidadFallaLluvia = (precipMax / 150) * 100
                     
-                    #Calculo de la probabilidad para el Oleaje
+                    # Cálculo de la probabilidad para el Oleaje
                     if maxWaveHeight >= 1.8:
                         probabilidadFallaOleaje = 100
                     elif maxWaveHeight >= 1.5:
-                        probabilidadFallaOleaje = ((maxWaveHeight - 1.5)/0.3)*100
+                        probabilidadFallaOleaje = ((maxWaveHeight - 1.5) / 0.3) * 100
                     else:
                         probabilidadFallaOleaje = 0
-
-
-
+                    
                     # Añadir información al contenido
-                    contenido.append(f"Puerto: {puerto.nombre}\n")
-                    contenido.append(f"País: {puerto.pais.nombre}\n")
-                    contenido.append(f"Clima: {climaHoy}\n")
-                    contenido.append(f"Probabilidad de Falla para LLuvia: {probabilidadFalla:.2f}%\n")
-                    contenido.append(f"Probabilidad de Falla para Oleaje: {probabilidadFallaOleaje:.2f}%\n")
-                    contenido.append(f"Probabilidad de Falla para Sismos: {probabilidadFallaSismo_final:.2f}%\n")
-                    contenido.append("-" * 40 + "\n")  # Separador entre puertos
-                except Exception as e :
+                    puerto_data = {
+                        'Puerto': puerto.nombre,
+                        'Pais': puerto.pais.nombre,
+                        'ProbabilidadFallaLluvia': round(probabilidadFallaLluvia, 2),
+                        'ProbabilidadFallaOleaje': round(probabilidadFallaOleaje, 2),
+                        'ProbabilidadFallaSismo': round(probabilidadFallaSismo_final, 2),
+                        'probabilidadFallaBahia': round(probabilidadFallaBahia,2),
+                    }
+                    contenido.append(puerto_data)
+                except Exception as e:
                     # Manejar excepciones y registrar el error en el contenido
-                    contenido.append(f"Puerto: {puerto.nombre}\n")
-                    contenido.append(f"Error al obtener datos: {str(e)}\n")
-                    contenido.append("-" * 40 + "\n")
-            else :
+                    puerto_data = {
+                        'Puerto': puerto.nombre,
+                        'Error': f"Error al obtener datos: {str(e)}",
+                    }
+                    contenido.append(puerto_data)
+            else:
                 # Manejar casos donde faltan latitud o longitud
-                contenido.append(f"Puerto: {puerto.nombre}\n")
-                contenido.append("Error: Latitud o longitud faltante.\n")
-                contenido.append("-" * 40 + "\n")
+                puerto_data = {
+                    'Puerto': puerto.nombre,
+                    'Error': 'Latitud o longitud faltante.',
+                }
+                contenido.append(puerto_data)
 
-        # Unir todas las líneas en una sola cadena de texto
-        texto_final = "\n".join(contenido)
+        return Response(contenido)
+    
+class SimularView(APIView):
+    def post(self, request):
+        # Filtrar los puertos de Chile que son puertos marítimos
+        puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
+        
+        body_unicode = request.body.decode('utf-8')
+        body_data = json.loads(body_unicode)
+        opciones_seleccionadas = request.data.get('opciones', [])
 
-        # Crear la respuesta HTTP con el contenido de texto
-        respuesta = HttpResponse(texto_final, content_type='text/plain')
-        respuesta['Content-Disposition'] = 'attachment; filename="datos_puertos.txt"'
+        
+        # Lista para almacenar los datos de los puertos
+        contenido = []
+        
+        for puerto in puertos_chile:
+            if puerto.latitud and puerto.longitud:
+                try:
+                    weather = get_current_weather(puerto.latitud, puerto.longitud)
+                    wave_data = get_current_wave(puerto.latitud, puerto.longitud)
+                    sismos = obtener_sismos_chile()
+                    
+                    hourly_data = weather.get('hourly', {})
+                    maxWaveHeight = max(oleaje.get('wave_height', 0) for oleaje in wave_data)
+                    
+                    # Distancia máxima para sismos
+                    distancia_maxima_km = 500
+                    ubicacion_puerto = (puerto.latitud, puerto.longitud)
+                    probabilidadFallaSismo_inicial = 0
+                    probabilidadFallaSismo_final = 0
+                    
+                    # Cálculo de las probabilidades para Bahía
+                    if puerto.sector:
+                        bahia = puerto.sector.id
+                        restricciones = obtener_restricciones(bahia)
+                        
+                        restricciones_filtradas = [
+                            restriccion for restriccion in restricciones
+                            if restriccion['bahia'] == bahia
+                        ]
+                        probabilidadFallaBahia = 100 if restricciones_filtradas else 0
+                    else:
+                        probabilidadFallaBahia = 0
+                    
+                    # Cálculo de la probabilidad para Sismos
+                    for sismo in sismos:
+                        epicentro = (sismo.get('latitud'), sismo.get('longitud'))
+                        try:
+                            distancia = geodesic(epicentro, ubicacion_puerto).kilometers
+                            esta_cerca = distancia <= distancia_maxima_km
+                        except ValueError:
+                            esta_cerca = False
+                        
+                        if esta_cerca:
+                            magnitud = sismo.get('magnitud')
+                            if magnitud is None:
+                                probabilidadFallaSismo = 0
+                            elif magnitud <= 5:
+                                probabilidadFallaSismo = 0
+                            elif magnitud >= 7:
+                                probabilidadFallaSismo = 100
+                            else:
+                                probabilidadFallaSismo = ((magnitud - 5)/(7 - 5))*100
+                                
+                            probabilidadFallaSismo_final = max(probabilidadFallaSismo_inicial, probabilidadFallaSismo)
+                    
+                    # Cálculo de la probabilidad para Lluvia
+                    precipTotal = sum(hora.get('rain', {}).get('1h', 0) for hora in hourly_data)
+                    precipMax = min(precipTotal, 150)
+                    probabilidadFallaLluvia = (precipMax / 150) * 100
+                    
+                    # Cálculo de la probabilidad para el Oleaje
+                    if maxWaveHeight >= 1.8:
+                        probabilidadFallaOleaje = 100
+                    elif maxWaveHeight >= 1.5:
+                        probabilidadFallaOleaje = ((maxWaveHeight - 1.5) / 0.3) * 100
+                    else:
+                        probabilidadFallaOleaje = 0
+                    
+                    puertos_restringidos = None
+                    
+                    if 'RESTRICCIONES' in opciones_seleccionadas:
+                        if random.random() < probabilidadFallaBahia/100:
+                            puertos_restringidos = puerto.codigo
+                    
+                    if 'SISMO' in opciones_seleccionadas:
+                        if random.random() < probabilidadFallaSismo_final/100:
+                            puertos_restringidos = puerto.codigo
 
+                    if 'LLUVIA' in opciones_seleccionadas:
+                        if random.random() < probabilidadFallaLluvia/100:
+                            puertos_restringidos = puerto.codigo
 
-        return respuesta
+                            
+                    if 'OLEAJE' in opciones_seleccionadas:
+                        if random.random() < probabilidadFallaOleaje/100:
+                            puertos_restringidos = puerto.codigo
+
+                    if puertos_restringidos is not None:
+                        contenido.append(puertos_restringidos)
+                    
+                except Exception as e:
+                    # Manejar excepciones y registrar el error en el contenido
+                    puerto_data = {
+                        'Puerto': puerto.nombre,
+                        'Error': f"Error al obtener datos: {str(e)}",
+                    }
+        return Response(contenido, status=status.HTTP_200_OK)
 

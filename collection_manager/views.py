@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import api_view, action
 
+from application.services import create_rutas
 from collection_manager.filters import SectorFilter, PuertoFilter
 #
 from collection_manager.serializer import PaisSerializer, PuertoSerializer, TipoOperacionSerializer, AduanaSerializer, \
@@ -17,6 +18,15 @@ from rest_framework import viewsets
 from rest_framework import status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+
+@api_view(['GET'])
+def cargar_rutas_importantes(request):
+    puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
+    puertos_importantes = Puerto.objects.filter(important=True)
+    for importante in puertos_importantes:
+        if importante.latitud and importante.longitud:
+            rutas, distancias_totales = create_rutas(importante, puertos_chile)
+    return Response({"message" : "Rutas actualizadas."}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
