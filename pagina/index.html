@@ -162,7 +162,7 @@
   <body>
     <div class="container">
       <h1>Trazabilidad de Exportaciones</h1>
-
+    
       <form id="form">
         <div class="input-group">
           <label for="selector1">Seleccione Origen:</label>
@@ -172,12 +172,38 @@
           <label for="selector2">Seleccione Destino:</label>
           <select id="selector2"></select>
         </div>
+    
+        <!-- Opciones para cargar el mapa con rutas específicas, usando radio buttons -->
+        <div class="input-group">
+          <label>Opciones de Ruta:</label>
+          <div>
+            <label>
+              <input type="radio" name="mapOption" value="allRoutes" /> Todas las rutas posibles
+            </label><br />
+            <label>
+              <input type="radio" name="mapOption" value="routesWithoutRestrictions" /> Rutas sin restricciones (Dijkstra)
+            </label><br />
+            <label>
+              <input type="radio" name="mapOption" value="routesWithRestrictions" /> Rutas con restricciones (Dijkstra + simulación)
+            </label><br />
+            <label>
+              <input type="radio" name="mapOption" value="routesWithHormigas" /> Rutas con colonia de hormigas(Metaheurística)
+            </label><br />
+            <label>
+              <input type="radio" name="mapOption" value="routesWithCPLEX" /> Rutas con modelo de optimizacion (CPLEX)
+            </label><br />
+          </div>
+        </div>
         <button type="button" onclick="enviarDatosInfraestructura()">Ir</button>
       </form>
-
+    
       <div class="iframe-container">
         <iframe src="rutas_alternativas.html"></iframe>
       </div>
+    
+      <!-- Aquí continúa el resto del código existente -->
+    </div>
+    
 
       <div class="section">
         <h2>Metadata</h2>
@@ -332,16 +358,34 @@
 
       async function enviarDatosInfraestructura() {
         const iframe = document.querySelector(".iframe-container iframe");
-        const url = `${BASE_URL}application/grafos/infraestructura/`;
+        const opcion = document.querySelector('input[name="mapOption"]:checked')
+          .value;
+        console.log('opcion seleccionada:', opcion);
+
         const id1 = document.getElementById("selector1").value;
         const id2 = document.getElementById("selector2").value;
-        const data = {
+        let data = {
           puerto_origen: Number(id1),
           puerto_destino: Number(id2),
           restringidos,
         };
         console.log(id1, id2);
-
+        let url = `${BASE_URL}application/grafos/infraestructura/`;
+        if (opcion === "allRoutes") {
+          url = `${BASE_URL}application/grafos/infraestructura/`;
+        } else if (opcion === "routesWithoutRestrictions") {
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          data = { puerto_destino: Number(id2), restringidos:[] };
+        } else if (opcion === "routesWithRestrictions") {
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          data = { puerto_destino: Number(id2), restringidos:restringidos };
+        } else if (opcion === "routesWithHormigas") {
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          data = { puerto_destino: Number(id2), restringidos:restringidos };
+        } else if (opcion === "routesWithCPLEX") {
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          data = { puerto_destino: Number(id2), restringidos:restringidos };
+        }
         try {
           const response = await fetch(url, {
             method: "POST",
@@ -361,7 +405,8 @@
           }
 
           const responseData = await response.json();
-          const rutaResultante = `https://marineanalytics.liftlogic.cl/static/${responseData.grafo_url}`;
+          console.log('response:', responseData);
+          const rutaResultante = `${BASE_URL}static/${responseData.grafo_url}`;
 
           // Redirige el iframe a la nueva URL
           iframe.src = rutaResultante;
