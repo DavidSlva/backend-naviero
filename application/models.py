@@ -26,3 +26,4 @@ class Arista(models.Model):
 
     def __str__(self):
         return f"{self.origen} -> {self.destino} ({self.distancia} km)"
+

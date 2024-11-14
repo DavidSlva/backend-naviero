@@ -1,8 +1,8 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
-    Pais, Puerto, Sector, TipoOperacion, Aduana, TipoCarga, ViaTransporte, RegimenImportacion, 
-    ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula
+    Pais, Puerto, Sector, TipoOperacion, Aduana, TipoCarga, ViaTransporte, RegimenImportacion,
+    ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Ruta
 )
 
 # Registrar cada modelo en el panel de administración utilizando SimpleHistoryAdmin
@@ -18,10 +18,17 @@ class PaisAdmin(SimpleHistoryAdmin):
 
 @admin.register(Puerto)
 class PuertoAdmin(SimpleHistoryAdmin):
-    list_display = ['codigo', 'nombre', 'pais', 'tipo', 'latitud', 'longitud', 'zona_geografica']
-    search_fields = ['nombre', 'codigo']
-    list_filter = ['pais']
+    list_display = ['codigo', 'nombre', 'pais', 'tipo', 'latitud', 'longitud', 'zona_geografica', 'sector','important', 'eslora_max', 'tipos_cargas']
+    search_fields = ['nombre', 'codigo', 'pais__nombre','tipo', 'tipos_cargas']
+    list_filter = ['pais', 'sector']
+    autocomplete_fields = ['pais', 'sector']
 
+@admin.register(Ruta)
+class RutaAdmin(SimpleHistoryAdmin):
+    list_display = ['origen', 'destino', 'distancia']
+    search_fields = ['origen__nombre', 'origen__codigo', 'destino__nombre', 'destino__codigo']
+    list_filter = ['origen__pais', 'destino__pais']
+    ordering = ['origen__codigo', 'destino__codigo']
 @admin.register(TipoOperacion)
 class TipoOperacionAdmin(SimpleHistoryAdmin):
     list_display = ['codigo', 'nombre', 'ind_ingreso', 'ind_salida']
