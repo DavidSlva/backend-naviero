@@ -5,7 +5,7 @@ from .views import GetCurrentWaveView, GetCurrentWeatherView, GetDatosManifiesto
 
 urlpatterns = [
     path(
-        'grafos/infraestructura/mejores_rutas/<int:origin>/',
+        'grafos/infraestructura/mejores_rutas/<int:origin>/<int:type>/',
         GetBestRoutesView.as_view(),
         name='obtener_mejores_rutas'
     ),

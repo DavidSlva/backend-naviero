@@ -1003,7 +1003,6 @@ def get_best_route_metaheuristic(origin_puerto, destination_puertos):
         logger.error(f"Error al calcular la ruta con ACO: {e}")
         raise
 
-def get_best_route_cplex(origin_puerto, destination_puertos):
     """
     Calcula la ruta óptima desde el puerto de origen a los puertos de destino utilizando
     el modelado de optimización con CPLEX, considerando las variables de los metadatos y amenazas,

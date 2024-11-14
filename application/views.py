@@ -80,8 +80,9 @@ class GetGrafoInfraestructuraView(APIView):
 
 
 class GetBestRoutesView(APIView) :
-    def get(self, request, origin, format=None) :  # Agrega `origin` como parámetro de la función
+    def get(self, request, origin, type, format=None) :  # Agrega `origin` como parámetro de la función
         try :
+            start_time = time.time()
             # Obtener el puerto de origen usando el parámetro `origin`
             origin_puerto = Puerto.objects.get(codigo=origin)
 
@@ -93,16 +94,19 @@ class GetBestRoutesView(APIView) :
 
 
             # Obtener las rutas más cortas desde el origen a los destinos
-            start_time = time.time()
-            best_route = get_best_route(origin_puerto, destination_puertos)
-            puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
+            if type == '1':
+                best_route = get_best_route(origin_puerto, destination_puertos)
+                puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
+            if type == '2':
+                best_route = get_best_route(origin_puerto, destination_puertos)
+                puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
+            if type == '3':
+                best_route = get_best_route_metaheuristic(origin_puerto, destination_puertos)
+                print(best_route)
+
             end_time = time.time()
             total_time = end_time - start_time
-            print(puerto_mejor)
 
-            metaurisitca = get_best_route_metaheuristic(origin_puerto, destination_puertos)
-            print(metaurisitca)
-            optimizacion = calcular_probabilidad_falla_puerto()
             # Retornar los datos de las rutas en formato JSON
             return Response({
                 "puerto": PuertoSerializer(puerto_mejor).data,
