@@ -398,13 +398,13 @@
         if (opcion === "allRoutes") {
           url = `${BASE_URL}application/grafos/infraestructura/`;
         } else if (opcion === "routesWithoutRestrictions") {
-          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/1`;
           data = { puerto_destino: Number(id2), restringidos:[] };
         } else if (opcion === "routesWithRestrictions") {
-          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/2`;
           data = { puerto_destino: Number(id2), restringidos:restringidos };
         } else if (opcion === "routesWithHormigas") {
-          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/3`;
           data = { puerto_destino: Number(id2), restringidos:restringidos };
         // } else if (opcion === "routesWithCPLEX") {
         //   url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
@@ -431,6 +431,7 @@
           const responseData = await response.json();
           console.log('response:', responseData);
           const rutaResultante = `${BASE_URL}static/${responseData.grafo_url}`;
+          console.log('tiempo:', responseData.tiempototal);
 
           // Redirige el iframe a la nueva URL
           iframe.src = rutaResultante;
