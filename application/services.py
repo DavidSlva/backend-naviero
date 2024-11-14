@@ -248,6 +248,99 @@ def visualizar_rutas_alternativas(G, puerto_origen, puertos_alternativos) :
         return None
 
 
+def visualizar_ruta_simple(origen_lat, origen_lon, destino_lat, destino_lon):
+    """
+    Genera un mapa HTML que muestra una ruta entre dos puntos (origen y destino).
+
+    Parámetros:
+    - origen_lat (float): Latitud del punto de origen.
+    - origen_lon (float): Longitud del punto de origen.
+    - destino_lat (float): Latitud del punto de destino.
+    - destino_lon (float): Longitud del punto de destino.
+
+    Retorna:
+    - str: Ruta del archivo HTML generado.
+    """
+    # Función para extraer coordenadas de la ruta
+    def extract_route_coordinates(route):
+        coordinates = []
+        if not route:
+            print("La ruta es None o está vacía.")
+            return coordinates
+
+        if 'geometry' in route and 'coordinates' in route['geometry']:
+            coords = route['geometry']['coordinates']
+            for point in coords:
+                coordinates.append([point[1], point[0]])  # [latitud, longitud]
+        else:
+            print("La estructura de la ruta no es la esperada.")
+        return coordinates
+
+    try:
+        # Calcular el centro del mapa entre los dos puntos
+        centro_lat = (origen_lat + destino_lat) / 2
+        centro_lon = (origen_lon + destino_lon) / 2
+
+        # Crear el mapa centrado
+        m = folium.Map(location=[centro_lat, centro_lon], zoom_start=5)
+        marker_cluster = MarkerCluster().add_to(m)
+
+        # Añadir marcador para el origen
+        folium.Marker(
+            location=[origen_lat, origen_lon],
+            popup="Origen",
+            icon=folium.Icon(color='green', icon='anchor', prefix='fa')
+        ).add_to(marker_cluster)
+
+        # Añadir marcador para el destino
+        folium.Marker(
+            location=[destino_lat, destino_lon],
+            popup="Destino",
+            icon=folium.Icon(color='red', icon='flag', prefix='fa')
+        ).add_to(marker_cluster)
+
+        # Calcular la ruta marítima utilizando sr.searoute
+        origin = [origen_lon, origen_lat]
+        destination = [destino_lon, destino_lat]
+        print(f'Calculando ruta de {origin} a {destination}')
+
+        route = sr.searoute(
+            origin,
+            destination,
+            append_orig_dest=True,
+            restrictions=['northwest'],  # Ajusta las restricciones según tus necesidades
+            include_ports=True,
+            port_params={'only_terminals': True}
+        )
+
+        # Extraer coordenadas de la ruta
+        route_coords = extract_route_coordinates(route)
+
+        # Añadir la ruta al mapa
+        if route_coords:
+            folium.PolyLine(
+                locations=route_coords,
+                color='blue',
+                weight=3,
+                opacity=0.8
+            ).add_to(m)
+        else:
+            print("No se pudieron extraer las coordenadas de la ruta.")
+
+        # Generar un nombre aleatorio para el archivo HTML
+        random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        grafo_html_path = f'{random_string}.html'
+
+        # Guardar el mapa en el directorio "staticfiles"
+        m.save(f"staticfiles/{grafo_html_path}")
+        print(f"Mapa guardado en 'staticfiles/{grafo_html_path}'")
+        return grafo_html_path
+
+    except Exception as e:
+        print(f"Ocurrió un error general en la función: {e}")
+        return None
+
+
 def generar_infraestructura(puerto_origen: Puerto, puerto_destino: Puerto) :
     """
     Genera la infraestructura para un puerto cerrado
@@ -941,7 +1034,7 @@ def get_best_route_metaheuristic(origin_puerto, destination_puertos):
         destination_codes = set(puerto.codigo for puerto in destination_puertos)
 
         # Obtener las probabilidades de falla de los puertos
-        puertos = Puerto.objects.all()
+        puertos = Puerto.objects.filter(codigo__in=destination_codes)
         port_failure_probabilities = {}
         for puerto in puertos:
             failure_probability = calcular_probabilidad_falla_puerto(puerto)

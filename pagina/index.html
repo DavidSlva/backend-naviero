@@ -334,8 +334,8 @@
     <script>
       let opciones = [];
       let restringidos = [];
-      // const BASE_URL = 'http://127.0.0.1:8000/';
-      const BASE_URL = "https://marineanalytics.liftlogic.cl/";
+      const BASE_URL = 'http://127.0.0.1:8000/';
+      //const BASE_URL = "https://marineanalytics.liftlogic.cl/";
 
       document.addEventListener("DOMContentLoaded", function () {
         // Cargar los datos del archivo Excel
@@ -398,13 +398,13 @@
         if (opcion === "allRoutes") {
           url = `${BASE_URL}application/grafos/infraestructura/`;
         } else if (opcion === "routesWithoutRestrictions") {
-          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/1`;
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/1/`;
           data = { puerto_destino: Number(id2), restringidos:[] };
         } else if (opcion === "routesWithRestrictions") {
-          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/2`;
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/2/`;
           data = { puerto_destino: Number(id2), restringidos:restringidos };
         } else if (opcion === "routesWithHormigas") {
-          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/3`;
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/3/`;
           data = { puerto_destino: Number(id2), restringidos:restringidos };
         // } else if (opcion === "routesWithCPLEX") {
         //   url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
