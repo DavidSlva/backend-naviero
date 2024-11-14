@@ -222,7 +222,7 @@ def visualizar_rutas_alternativas(G, puerto_origen, puertos_alternativos):
         # Guardar el mapa en un archivo HTML con un nombre aleatorio
         random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
         grafo_html_path = f'{random_string}.html'
-        m.save(grafo_html_path)
+        m.save(f"staticfiles/{grafo_html_path}")
         print(f"Mapa guardado en '{grafo_html_path}'")
         return grafo_html_path
 
