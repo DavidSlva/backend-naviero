@@ -1,3 +1,4 @@
+import random
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
@@ -18,6 +19,7 @@ from django.views import View
 from django.http import HttpResponse
 import requests
 from geopy.distance import geodesic
+from collection_manager.serializer import PuertoSerializer
 
 from django.http import JsonResponse
 import os
@@ -447,3 +449,114 @@ class GuardarView(APIView):
                 contenido.append(puerto_data)
 
         return Response(contenido)
+    
+class SimularView(APIView):
+    def post(self, request):
+        # Filtrar los puertos de Chile que son puertos marítimos
+        puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
+        
+        body_unicode = request.body.decode('utf-8')
+        body_data = json.loads(body_unicode)
+        opciones_seleccionadas = request.data.get('opciones', [])
+        print(opciones_seleccionadas)
+
+        
+        # Lista para almacenar los datos de los puertos
+        contenido = []
+        
+        for puerto in puertos_chile:
+            if puerto.latitud and puerto.longitud:
+                try:
+                    weather = get_current_weather(puerto.latitud, puerto.longitud)
+                    wave_data = get_current_wave(puerto.latitud, puerto.longitud)
+                    sismos = obtener_sismos_chile()
+                    
+                    hourly_data = weather.get('hourly', {})
+                    maxWaveHeight = max(oleaje.get('wave_height', 0) for oleaje in wave_data)
+                    
+                    # Distancia máxima para sismos
+                    distancia_maxima_km = 500
+                    ubicacion_puerto = (puerto.latitud, puerto.longitud)
+                    probabilidadFallaSismo_inicial = 0
+                    probabilidadFallaSismo_final = 0
+                    
+                    # Cálculo de las probabilidades para Bahía
+                    if puerto.sector:
+                        bahia = puerto.sector.id
+                        restricciones = obtener_restricciones(bahia)
+                        
+                        restricciones_filtradas = [
+                            restriccion for restriccion in restricciones
+                            if restriccion['bahia'] == bahia
+                        ]
+                        probabilidadFallaBahia = 100 if restricciones_filtradas else 0
+                    else:
+                        probabilidadFallaBahia = 0
+                    
+                    # Cálculo de la probabilidad para Sismos
+                    for sismo in sismos:
+                        epicentro = (sismo.get('latitud'), sismo.get('longitud'))
+                        try:
+                            distancia = geodesic(epicentro, ubicacion_puerto).kilometers
+                            esta_cerca = distancia <= distancia_maxima_km
+                        except ValueError:
+                            esta_cerca = False
+                        
+                        if esta_cerca:
+                            magnitud = sismo.get('magnitud')
+                            if magnitud is None:
+                                probabilidadFallaSismo = 0
+                            elif magnitud <= 5:
+                                probabilidadFallaSismo = 0
+                            elif magnitud >= 7:
+                                probabilidadFallaSismo = 100
+                            else:
+                                probabilidadFallaSismo = ((magnitud - 5)/(7 - 5))*100
+                                
+                            probabilidadFallaSismo_final = max(probabilidadFallaSismo_inicial, probabilidadFallaSismo)
+                    
+                    # Cálculo de la probabilidad para Lluvia
+                    precipTotal = sum(hora.get('rain', {}).get('1h', 0) for hora in hourly_data)
+                    precipMax = min(precipTotal, 150)
+                    probabilidadFallaLluvia = (precipMax / 150) * 100
+                    
+                    # Cálculo de la probabilidad para el Oleaje
+                    if maxWaveHeight >= 1.8:
+                        probabilidadFallaOleaje = 100
+                    elif maxWaveHeight >= 1.5:
+                        probabilidadFallaOleaje = ((maxWaveHeight - 1.5) / 0.3) * 100
+                    else:
+                        probabilidadFallaOleaje = 0
+                    
+                    puertos_restringidos = None
+                    
+                    if 'RESTRICCIONES' in opciones_seleccionadas:
+                        if random.random() < probabilidadFallaBahia/100:
+                            puertos_restringidos = puerto
+                    
+                    if 'SISMO' in opciones_seleccionadas:
+                        if random.random() < probabilidadFallaSismo_final/100:
+                            puertos_restringidos = puerto
+
+                    if 'LLUVIA' in opciones_seleccionadas:
+                        if random.random() < probabilidadFallaLluvia/100:
+                            puertos_restringidos = puerto
+
+                            
+                    if 'OLEAJE' in opciones_seleccionadas:
+                        if random.random() < probabilidadFallaOleaje/100:
+                            puertos_restringidos = puerto
+
+                    if puertos_restringidos is not None:
+                        contenido.append(puertos_restringidos)
+                    
+                except Exception as e:
+                    # Manejar excepciones y registrar el error en el contenido
+                    puerto_data = {
+                        'Puerto': puerto.nombre,
+                        'Error': f"Error al obtener datos: {str(e)}",
+                    }
+            print(contenido) 
+            serialaser = PuertoSerializer(contenido, many = True).data
+        return Response(serialaser, status=status.HTTP_200_OK)
+

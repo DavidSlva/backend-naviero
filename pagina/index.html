@@ -237,18 +237,41 @@
           </div>
         </div>
       </div>
-
-      <div class="section">
-        <h2>Probabilidades De Fallo</h2>
-        <div class="input-group">
-          <div class="button-row">
-            <button type="button" onclick="ObtenerProbabilidades()">
-              Obtener Probabilidades de Fallo
-            </button>
+      <form id="checkboxForm">
+        <div class="section">
+          <h2>Probabilidades De Fallo</h2>
+          
+          <!-- Sección de Checkboxes -->
+          <div class="checkbox-group">
+            <label>
+              <input type="checkbox" name="opciones" value="SISMO">
+              SISMO
+            </label><br>
+            <label>
+              <input type="checkbox" name="opciones" value="OLEAJE">
+              OLEAJE
+            </label><br>
+            <label>
+              <input type="checkbox" name="opciones" value="LLUVIA">
+              LLUVIA
+            </label><br>
+            <label>
+              <input type="checkbox" name="opciones" value="RESTRICCIONES">
+              RESTRICCIONES
+            </label><br>
+            <button type="button" onclick="SimularFallos()">Simular Fallo</button>
+          </div>
+          
+          <!-- Botón para Obtener Probabilidades -->
+          <div class="input-group">
+            <div class="button-row">
+              <button type="button" onclick="ObtenerProbabilidades()">
+                Obtener Probabilidades de Fallo
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
+      </form>
       <div id="resultado"></div>
       <div id="resultadoSismologia"></div>
     </div>
@@ -887,7 +910,25 @@
         }
     }
     
-      
+
+    async function SimularFallos(){
+      const form = document.getElementById('checkboxForm');
+      const formData = new FormData(form);
+      const opciones = formData.getAll('opciones');
+      try{
+        let response = await fetch('http://127.0.0.1:8000/application/Simular/', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ opciones: opciones })
+      })
+      const data = await response.json();
+      }catch (error) {
+        console.error('Error:', error);
+        alert('Ocurrió un error al procesar la solicitud.');
+    }
+  }
     </script>
   </body>
 </html>

@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import GetCurrentWaveView, GetCurrentWeatherView, GetDatosManifiesto, GetGrafoInfraestructuraView, \
     GetSismosChileView, ObtenerNaveView, PuertoNavesRecalandoView, PuertoSanAntonioView, UbicacionApiView, \
-    ObtenerRestriccionesView, ObtenerNavesView, GuardarView
+    ObtenerRestriccionesView, ObtenerNavesView, GuardarView, SimularView
 
 urlpatterns = [
     path('grafos/infraestructura/', GetGrafoInfraestructuraView.as_view(), name='obtener_grafo_infraestructura'),
@@ -19,4 +19,5 @@ urlpatterns = [
     path('nave/<str:nombre_nave>/', ObtenerNaveView.as_view(), name='obtener_nave por coincidencia'),
     path('nave/manifiesto/<int:programacion>/', GetDatosManifiesto.as_view(), name='obtener_nave por manifiesto'),
     path('guardar_probabilidades/', GuardarView.as_view(), name='guardar_probabilidades'),
+    path('Simular/', SimularView.as_view(), name='Simular_fallos'),
 ]
