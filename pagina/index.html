@@ -276,6 +276,30 @@
       </form>
       <div id="resultado"></div>
       <div id="resultadoSismologia"></div>
+      <div class="section">
+        <h2>Eslora del barco</h2>
+        <div class="input-group">
+          <label for="inputIMO">IMO del barco:</label>
+          <input type="text" id="inputIMO" />
+        </div>
+        <div class="input-group">
+          <label for="selectorOrigen">Seleccione Origen:</label>
+          <select id="selectorOrigen">
+            <!-- Opciones de origen se cargarán aquí -->
+          </select>
+        </div>
+        <div class="input-group">
+          <label for="selectorDestino">Seleccione Destino:</label>
+          <select id="selectorDestino">
+            <!-- Opciones de destino se cargarán aquí -->
+          </select>
+        </div>
+        <div class="button-row">
+          <button type="button" onclick="compilarEslora()">
+            Calcular Eslora
+          </button>
+        </div>
+      </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
