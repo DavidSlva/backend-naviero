@@ -8,13 +8,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+import string
 
 from api.models import Puertos
 from collection_manager.models import Sector, Puerto
 from application.services import consultar_datos_manifiesto, generar_infraestructura, get_current_wave, \
     get_current_weather, get_planificacion_san_antonio, obtener_datos_nave_por_nombre_o_imo, obtener_sismos_chile, \
     obtener_ubicacion_barco, obtener_restricciones, obtener_nave, get_naves_recalando, scrape_nave_data, \
-    get_best_routes, get_best_route, get_best_route_metaheuristic, calcular_probabilidad_falla_puerto
+    get_best_routes, get_best_route, get_best_route_metaheuristic, calcular_probabilidad_falla_puerto, visualizar_ruta_simple
 from application.services import obtener_restricciones
 from application.serializers import GrafoInfraestructuraSerializer, SectorSerializer, SismoSerializer, WaveSerializer
 from drf_spectacular.utils import extend_schema
@@ -33,6 +34,11 @@ from django.http import JsonResponse
 import os
 import csv
 import json
+import searoute as sr
+
+import folium
+from folium.plugins import MarkerCluster
+
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +71,7 @@ class GetGrafoInfraestructuraView(APIView):
                 raise Exception("Faltan los parámetros 'puerto_origen' y 'puerto_destino' en el body")
         except Puerto.DoesNotExist:
             # Registrar el error y retornar un mensaje genérico
-            logger.error(f"Error al obtener la información de los grafos de infraestructura: {e}")
+            logger.error(f"Error al obtener la información de los grafos de infraestructura")
             return Response(
                 {'status': 'error', 'message': 'Error al obtener la información de los grafos de infraestructura.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -80,9 +86,11 @@ class GetGrafoInfraestructuraView(APIView):
 
 
 class GetBestRoutesView(APIView) :
-    def get(self, request, origin, type, format=None) :  # Agrega `origin` como parámetro de la función
+    def post(self, request, origin, type, format=None) :  # Agrega `origin` como parámetro de la función
         try :
             start_time = time.time()
+            body = request.data
+            restringidos = body.get('restricciones', [])
             # Obtener el puerto de origen usando el parámetro `origin`
             origin_puerto = Puerto.objects.get(codigo=origin)
 
@@ -90,19 +98,24 @@ class GetBestRoutesView(APIView) :
             destination_puertos = Puerto.objects.filter(
                 pais__codigo=997,
                 tipo='Puerto marítimo'
-            )
+            ).exclude(codigo__in=restringidos)
 
+            puerto_mejor = None
+            # grafo_name = generar_infraestructura(origin_puerto, puerto_destino)
 
             # Obtener las rutas más cortas desde el origen a los destinos
-            if type == '1':
+            if type == 1:
                 best_route = get_best_route(origin_puerto, destination_puertos)
                 puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
-            if type == '2':
+            if type == 2:
                 best_route = get_best_route(origin_puerto, destination_puertos)
                 puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
-            if type == '3':
+            if type == 3:
                 best_route = get_best_route_metaheuristic(origin_puerto, destination_puertos)
+                puerto_mejor = Puerto.objects.get(codigo=best_route['destination'])
                 print(best_route)
+            print(puerto_mejor, origin_puerto)
+            html = visualizar_ruta_simple(origin_puerto.latitud, origin_puerto.longitud, puerto_mejor.latitud, puerto_mejor.longitud)
 
             end_time = time.time()
             total_time = end_time - start_time
@@ -110,7 +123,8 @@ class GetBestRoutesView(APIView) :
             # Retornar los datos de las rutas en formato JSON
             return Response({
                 "puerto": PuertoSerializer(puerto_mejor).data,
-                "tiempo_total": total_time
+                "tiempo_total": total_time,
+                "grafo_url": html
             }, status=status.HTTP_200_OK)
 
         except Puerto.DoesNotExist :
@@ -224,7 +238,7 @@ class GetCurrentWaveView(APIView):
             )
         except Puerto.DoesNotExist:
             # Registrar el error y retornar un mensaje genérico
-            logger.error(f"Error al obtener la información actual de oleaje de un puerto: {e}")
+            logger.error(f"Error al obtener la información actual de oleaje de un puerto")
             return Response(
                 {'status': 'error', 'message': 'Error al obtener la información actual de oleaje de un puerto.'},
                 status=status.HTTP_404_NOT_FOUND
