@@ -348,25 +348,18 @@ class ObtenerRestriccionesView(APIView):
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class GuardarView(APIView) :
+class GuardarView(APIView):
 
-    def get(self, request) :
+    def get(self, request):
         # Filtrar los puertos de Chile que son puertos marítimos
         puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
         
-        # Obtener las restricciones de la bahía
-        #restricciones = obtener_restricciones(bahia.id)
-
-        # Lista para almacenar las líneas del archivo de texto
+        # Lista para almacenar los datos de los puertos
         contenido = []
         
-
-        for puerto in puertos_chile :
-            if puerto.latitud and puerto.longitud :
-                try :
-                    #bahias = puerto.sector
-                    #print(f"ID BAHIAS: {bahias}")
-                    
+        for puerto in puertos_chile:
+            if puerto.latitud and puerto.longitud:
+                try:
                     weather = get_current_weather(puerto.latitud, puerto.longitud)
                     wave_data = get_current_wave(puerto.latitud, puerto.longitud)
                     sismos = obtener_sismos_chile()
@@ -375,14 +368,13 @@ class GuardarView(APIView) :
                     hourly_data = weather.get('hourly', {})
                     maxWaveHeight = max(oleaje.get('wave_height', 0) for oleaje in wave_data)
                     
-                    
-                    #Distancia maxima para sismos
+                    # Distancia máxima para sismos
                     distancia_maxima_km = 500
                     ubicacion_puerto = (puerto.latitud, puerto.longitud)
                     probabilidadFallaSismo_inicial = 0
                     probabilidadFallaSismo_final = 0
                     
-                    #Calculo de la probabilidad para Sismos
+                    # Cálculo de la probabilidad para Sismos
                     for sismo in sismos:
                         epicentro = (sismo.get('latitud'), sismo.get('longitud'))
                         try:
@@ -402,51 +394,46 @@ class GuardarView(APIView) :
                             else:
                                 probabilidadFallaSismo = ((magnitud - 5)/(7 - 5))*100
                                 
-                            probabilidadFallaSismo_final = max(probabilidadFallaSismo_inicial, probabilidadFallaSismo) 
-                                
+                            probabilidadFallaSismo_final = max(probabilidadFallaSismo_inicial, probabilidadFallaSismo)
                     
-                    #Calculo de la probabilidad para LLuvia
+                    # Cálculo de la probabilidad para Lluvia
                     precipTotal = sum(hora.get('rain', {}).get('1h', 0) for hora in hourly_data)
                     precipMax = min(precipTotal, 150)
-                    probabilidadFalla = (precipMax/150)*100
+                    probabilidadFallaLluvia = (precipMax / 150) * 100
                     
-                    #Calculo de la probabilidad para el Oleaje
+                    # Cálculo de la probabilidad para el Oleaje
                     if maxWaveHeight >= 1.8:
                         probabilidadFallaOleaje = 100
                     elif maxWaveHeight >= 1.5:
-                        probabilidadFallaOleaje = ((maxWaveHeight - 1.5)/0.3)*100
+                        probabilidadFallaOleaje = ((maxWaveHeight - 1.5) / 0.3) * 100
                     else:
                         probabilidadFallaOleaje = 0
                     
-
                     # Añadir información al contenido
-                    contenido.append(f"Puerto: {puerto.nombre}\n")
-                    contenido.append(f"País: {puerto.pais.nombre}\n")
-                    contenido.append(f"Clima: {climaHoy}\n")
-                    contenido.append(f"Probabilidad de Falla para LLuvia: {probabilidadFalla:.2f}%\n")
-                    contenido.append(f"Probabilidad de Falla para Oleaje: {probabilidadFallaOleaje:.2f}%\n")
-                    contenido.append(f"Probabilidad de Falla para Sismos: {probabilidadFallaSismo_final:.2f}%\n")
-                    contenido.append("-" * 40 + "\n")  # Separador entre puertos
-                except Exception as e :
+                    puerto_data = {
+                        'Puerto': puerto.nombre,
+                        'Pais': puerto.pais.nombre,
+                        'ProbabilidadFallaLluvia': round(probabilidadFallaLluvia, 2),
+                        'ProbabilidadFallaOleaje': round(probabilidadFallaOleaje, 2),
+                        'ProbabilidadFallaSismo': round(probabilidadFallaSismo_final, 2),
+                    }
+                    contenido.append(puerto_data)
+                except Exception as e:
                     # Manejar excepciones y registrar el error en el contenido
-                    contenido.append(f"Puerto: {puerto.nombre}\n")
-                    contenido.append(f"Error al obtener datos: {str(e)}\n")
-                    contenido.append("-" * 40 + "\n")
-            else :
+                    puerto_data = {
+                        'Puerto': puerto.nombre,
+                        'Error': f"Error al obtener datos: {str(e)}",
+                    }
+                    contenido.append(puerto_data)
+            else:
                 # Manejar casos donde faltan latitud o longitud
-                contenido.append(f"Puerto: {puerto.nombre}\n")
-                contenido.append("Error: Latitud o longitud faltante.\n")
-                contenido.append("-" * 40 + "\n")
+                puerto_data = {
+                    'Puerto': puerto.nombre,
+                    'Error': 'Latitud o longitud faltante.',
+                }
+                contenido.append(puerto_data)
 
-        # Unir todas las líneas en una sola cadena de texto
-        texto_final = "\n".join(contenido)
-
-        # Crear la respuesta HTTP con el contenido de texto
-        respuesta = HttpResponse(texto_final, content_type='text/plain')
-        respuesta['Content-Disposition'] = 'attachment; filename="datos_puertos.txt"'
-
-
-        return respuesta
+        return Response(contenido)
 
 
 
