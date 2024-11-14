@@ -920,7 +920,7 @@
             {
               method: "GET",
               headers: {
-                Accept: "application/json", // prueba con este valor en lugar de 'text/plain'
+                Accept: "application/json",
               },
             }
           );
@@ -929,11 +929,14 @@
             throw new Error("Error en la solicitud: " + response.statusText);
           }
 
-          // Obtener el texto de la respuesta
-          const text = await response.text();
+          // Obtener los datos de la respuesta como JSON
+          const data = await response.json();
 
-          // Crear un Blob con el texto y el tipo MIME adecuado
-          const blob = new Blob([text], { type: "text/plain" });
+          // Convertir el objeto JSON a una cadena con formato
+          const jsonString = JSON.stringify(data, null, 2);
+
+          // Crear un Blob con la cadena JSON y el tipo MIME adecuado
+          const blob = new Blob([jsonString], { type: "application/json" });
 
           // Crear una URL para el Blob
           const url = window.URL.createObjectURL(blob);
@@ -941,7 +944,7 @@
           // Crear un elemento <a> para iniciar la descarga
           const a = document.createElement("a");
           a.href = url;
-          a.download = "datos_puertos.txt"; // Nombre del archivo a descargar
+          a.download = "datos_puertos.json"; // Nombre del archivo a descargar
           document.body.appendChild(a);
           a.click();
 
