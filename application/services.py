@@ -882,3 +882,319 @@ def get_best_route(origin_puerto, destination_puertos) :
     except Exception as e :
         logger.error(f"Error al calcular la ruta más corta con NetworkX: {e}")
         raise
+
+def get_best_route_metaheuristic(origin_puerto, destination_puertos):
+    """
+    Calcula la ruta óptima desde el puerto de origen a los puertos de destino utilizando
+    el algoritmo de Optimización por Colonia de Hormigas (Ant Colony Optimization - ACO).
+    
+    :param origin_puerto: Objeto Puerto que representa el puerto de origen.
+    :param destination_puertos: QuerySet de objetos Puerto que representan los puertos de destino.
+    :return: Diccionario con 'destination', 'total_cost' y 'path' de la mejor ruta encontrada.
+    """
+    try:
+        # Crear un grafo no dirigido
+        G = nx.Graph()
+
+        # Obtener todas las rutas de la base de datos
+        rutas = Ruta.objects.all()
+
+        # Agregar aristas al grafo con las distancias como pesos
+        for ruta in rutas:
+            G.add_edge(
+                ruta.origen.codigo,
+                ruta.destino.codigo,
+                weight=ruta.distancia
+            )
+
+        # Obtener los códigos de los puertos de destino
+        destination_codes = set(puerto.codigo for puerto in destination_puertos)
+
+        # Obtener las probabilidades de falla de los puertos
+        puertos = Puerto.objects.all()
+        port_failure_probabilities = {}
+        for puerto in puertos:
+            failure_probability = calcular_probabilidad_falla_puerto(puerto)
+            port_failure_probabilities[puerto.codigo] = failure_probability
+
+        # Parámetros del ACO
+        num_ants = 10
+        num_iterations = 100
+        evaporation_rate = 0.5
+        alpha = 1  # Importancia de la feromona
+        beta = 2   # Importancia de la heurística (1/distancia)
+
+        # Inicializar las feromonas en todas las aristas
+        pheromone = {}
+        for edge in G.edges():
+            pheromone[edge] = 1.0
+
+        best_path = None
+        best_cost = float('inf')
+        best_destination = None
+
+        for iteration in range(num_iterations):
+            paths = []
+            for ant in range(num_ants):
+                # Cada hormiga construye una solución
+                path = [origin_puerto.codigo]
+                current_node = origin_puerto.codigo
+                visited = set()
+                visited.add(current_node)
+
+                while current_node not in destination_codes:
+                    neighbors = [n for n in G.neighbors(current_node) if n not in visited]
+                    if not neighbors:
+                        break  # No hay camino disponible
+                    probabilities = []
+                    for neighbor in neighbors:
+                        edge = (current_node, neighbor)
+                        edge_pheromone = pheromone.get(edge, 1.0)
+                        edge_weight = G[current_node][neighbor]['weight']
+                        heuristic = (1.0 / edge_weight) ** beta
+
+                        # Considerar la probabilidad de falla del puerto
+                        failure_penalty = (1 - port_failure_probabilities.get(neighbor, 0.0))
+                        probability = (edge_pheromone ** alpha) * heuristic * failure_penalty
+                        probabilities.append(probability)
+                    # Normalizar las probabilidades
+                    total = sum(probabilities)
+                    probabilities = [p / total for p in probabilities]
+
+                    # Seleccionar el siguiente nodo basado en las probabilidades
+                    next_node = random.choices(neighbors, weights=probabilities, k=1)[0]
+                    path.append(next_node)
+                    visited.add(next_node)
+                    current_node = next_node
+
+                # Evaluar el costo del camino
+                if current_node in destination_codes:
+                    total_cost = 0
+                    for i in range(len(path) - 1):
+                        total_cost += G[path[i]][path[i+1]]['weight']
+                        # Añadir penalización por probabilidad de falla
+                        total_cost += port_failure_probabilities.get(path[i+1], 0.0) * 1000  # Peso ajustable
+                    paths.append((path, total_cost, current_node))
+                    # Actualizar la mejor solución
+                    if total_cost < best_cost:
+                        best_cost = total_cost
+                        best_path = path
+                        best_destination = current_node
+
+            # Actualizar las feromonas
+            for edge in pheromone:
+                pheromone[edge] *= (1 - evaporation_rate)  # Evaporación
+
+            for path_info in paths:
+                path, total_cost, dest = path_info
+                # Depositar feromonas inversamente proporcional al costo
+                deposit = 1.0 / total_cost
+                for i in range(len(path) - 1):
+                    edge = (path[i], path[i+1])
+                    pheromone[edge] += deposit
+
+        return {
+            'destination': best_destination,
+            'total_cost': best_cost,
+            'path': best_path,
+        }
+
+    except Exception as e:
+        logger.error(f"Error al calcular la ruta con ACO: {e}")
+        raise
+
+def get_best_route_cplex(origin_puerto, destination_puertos):
+    """
+    Calcula la ruta óptima desde el puerto de origen a los puertos de destino utilizando
+    el modelado de optimización con CPLEX, considerando las variables de los metadatos y amenazas,
+    y las condiciones del usuario como restricciones.
+
+    :param origin_puerto: Objeto Puerto que representa el puerto de origen.
+    :param destination_puertos: QuerySet de objetos Puerto que representan los puertos de destino.
+    :return: Diccionario con 'destination', 'total_cost' y 'path' de la mejor ruta encontrada.
+    """
+    try:
+        from docplex.mp.model import Model
+
+        # Crear un modelo de optimización
+        mdl = Model(name='RouteOptimization')
+
+        # Crear un grafo no dirigido
+        G = nx.Graph()
+
+        # Obtener todas las rutas de la base de datos
+        rutas = Ruta.objects.all()
+
+        # Agregar aristas al grafo con las distancias como pesos
+        for ruta in rutas:
+            G.add_edge(
+                ruta.origen.codigo,
+                ruta.destino.codigo,
+                weight=ruta.distancia
+            )
+
+        # Obtener los códigos de los puertos de destino
+        destination_codes = set(puerto.codigo for puerto in destination_puertos)
+
+        # Variables de decisión: x[i,j] = 1 si la ruta (i,j) está en el camino óptimo
+        x = mdl.binary_var_dict(G.edges(), name='x')
+
+        # Función objetivo: minimizar la suma de las distancias de las rutas seleccionadas
+        mdl.minimize(mdl.sum(G[i][j]['weight'] * x[(i, j)] for i, j in G.edges()))
+
+        # Restricciones de flujo
+        for node in G.nodes():
+            flujo_entrada = mdl.sum(x[(i, node)] for i in G.neighbors(node) if (i, node) in x)
+            flujo_salida = mdl.sum(x[(node, j)] for j in G.neighbors(node) if (node, j) in x)
+            if node == origin_puerto.codigo:
+                mdl.add_constraint(flujo_salida - flujo_entrada == 1)
+            elif node in destination_codes:
+                mdl.add_constraint(flujo_entrada - flujo_salida == 1)
+            else:
+                mdl.add_constraint(flujo_entrada - flujo_salida == 0)
+
+        # Obtener las probabilidades de falla de los puertos
+        puertos = Puerto.objects.all()
+        port_failure_probabilities = {}
+        for puerto in puertos:
+            failure_probability = calcular_probabilidad_falla_puerto(puerto)
+            port_failure_probabilities[puerto.codigo] = failure_probability
+
+        # Condiciones del usuario como restricciones
+        failure_threshold = 0.5  # Por ejemplo, evitar puertos con más del 50% de probabilidad de falla
+        for node in G.nodes():
+            if port_failure_probabilities.get(node, 0.0) > failure_threshold:
+                # Eliminar todas las aristas conectadas a este nodo
+                for neighbor in list(G.neighbors(node)):
+                    if (node, neighbor) in x:
+                        mdl.add_constraint(x[(node, neighbor)] == 0)
+                    if (neighbor, node) in x:
+                        mdl.add_constraint(x[(neighbor, node)] == 0)
+
+        # Resolver el modelo
+        solution = mdl.solve()
+
+        if solution:
+            # Obtener la ruta óptima
+            path_edges = [edge for edge in x if x[edge].solution_value > 0.5]
+            # Construir el camino a partir de las aristas seleccionadas
+            path_graph = nx.Graph()
+            path_graph.add_edges_from(path_edges)
+            paths = []
+            for dest in destination_codes:
+                try:
+                    path = nx.shortest_path(path_graph, source=origin_puerto.codigo, target=dest)
+                    paths.append((path, dest))
+                except nx.NetworkXNoPath:
+                    continue
+
+            if not paths:
+                return {
+                    'destination': None,
+                    'total_cost': None,
+                    'path': None,
+                }
+
+            # Seleccionar el camino más corto
+            best_path_info = min(paths, key=lambda p: sum(G[p[0][i]][p[0][i+1]]['weight'] for i in range(len(p[0])-1)))
+            best_path, best_destination = best_path_info
+            total_cost = sum(G[best_path[i]][best_path[i+1]]['weight'] for i in range(len(best_path)-1))
+            return {
+                'destination': best_destination,
+                'total_cost': total_cost,
+                'path': best_path,
+            }
+        else:
+            logger.error("No se encontró solución al modelo de optimización con CPLEX")
+            return {
+                'destination': None,
+                'total_cost': None,
+                'path': None,
+            }
+
+    except Exception as e:
+        logger.error(f"Error al calcular la ruta con CPLEX: {e}")
+        raise
+
+
+def calcular_probabilidad_falla_puerto(puerto):
+    """
+    Calcula la probabilidad de falla del puerto basado en factores como sismos, lluvias, oleaje y restricciones.
+    """
+    try:
+        if puerto.latitud and puerto.longitud:
+            weather = get_current_weather(puerto.latitud, puerto.longitud)
+            wave_data = get_current_wave(puerto.latitud, puerto.longitud)
+            sismos = obtener_sismos_chile()
+
+            hourly_data = weather.get('hourly', {})
+            maxWaveHeight = max(oleaje.get('wave_height', 0) for oleaje in wave_data)
+
+            # Distancia máxima para sismos
+            distancia_maxima_km = 500
+            ubicacion_puerto = (puerto.latitud, puerto.longitud)
+            probabilidadFallaSismo_final = 0
+
+            # Cálculo de las probabilidades para Bahía
+            if puerto.sector:
+                bahia = puerto.sector.id
+                restricciones = obtener_restricciones(bahia)
+
+                restricciones_filtradas = [
+                    restriccion for restriccion in restricciones
+                    if restriccion['bahia'] == bahia
+                ]
+                probabilidadFallaBahia = 1.0 if restricciones_filtradas else 0.0
+            else:
+                probabilidadFallaBahia = 0.0
+
+            # Cálculo de la probabilidad para Sismos
+            for sismo in sismos:
+                epicentro = (sismo.get('latitud'), sismo.get('longitud'))
+                try:
+                    distancia = geodesic(epicentro, ubicacion_puerto).kilometers
+                    esta_cerca = distancia <= distancia_maxima_km
+                except ValueError:
+                    esta_cerca = False
+
+                if esta_cerca:
+                    magnitud = sismo.get('magnitud')
+                    if magnitud is None:
+                        probabilidadFallaSismo = 0.0
+                    elif magnitud <= 5:
+                        probabilidadFallaSismo = 0.0
+                    elif magnitud >= 7:
+                        probabilidadFallaSismo = 1.0
+                    else:
+                        probabilidadFallaSismo = ((magnitud - 5)/(7 - 5))
+                    probabilidadFallaSismo_final = max(probabilidadFallaSismo_final, probabilidadFallaSismo)
+
+            # Cálculo de la probabilidad para Lluvia
+            precipTotal = sum(hora.get('rain', {}).get('1h', 0) for hora in hourly_data)
+            precipMax = min(precipTotal, 150)
+            probabilidadFallaLluvia = (precipMax / 150)
+
+            # Cálculo de la probabilidad para el Oleaje
+            if maxWaveHeight >= 1.8:
+                probabilidadFallaOleaje = 1.0
+            elif maxWaveHeight >= 1.5:
+                probabilidadFallaOleaje = ((maxWaveHeight - 1.5) / 0.3)
+            else:
+                probabilidadFallaOleaje = 0.0
+
+            # Combinar las probabilidades
+            probabilidadFallaTotal = max(
+                probabilidadFallaBahia,
+                probabilidadFallaSismo_final,
+                probabilidadFallaLluvia,
+                probabilidadFallaOleaje
+            )
+
+            return probabilidadFallaTotal
+
+        else:
+            return 0.0
+
+    except Exception as e:
+        logger.error(f"Error al calcular la probabilidad de falla del puerto {puerto.codigo}: {e}")
+        return 0.0
