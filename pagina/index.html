@@ -258,6 +258,8 @@
     <!-- Script principal -->
     <script>
       let opciones = [];
+      // const BASE_URL = 'http://127.0.0.1:8000/';
+      const BASE_URL = 'http://127.0.0.1:8000/';
 
       document.addEventListener("DOMContentLoaded", function () {
         // Cargar los datos del archivo Excel
@@ -305,7 +307,7 @@
       async function enviarDatosInfraestructura() {
         const iframe = document.querySelector(".iframe-container iframe");
         const url =
-          "http://localhost:8000/application/grafos/infraestructura/";
+          `${BASE_URL}application/grafos/infraestructura/`;
         const id1 = document.getElementById("selector1").value;
         const id2 = document.getElementById("selector2").value;
         const data = {
