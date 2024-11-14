@@ -162,7 +162,7 @@
   <body>
     <div class="container">
       <h1>Trazabilidad de Exportaciones</h1>
-
+    
       <form id="form">
         <div class="input-group">
           <label for="selector1">Seleccione Origen:</label>
@@ -172,12 +172,38 @@
           <label for="selector2">Seleccione Destino:</label>
           <select id="selector2"></select>
         </div>
+    
+        <!-- Opciones para cargar el mapa con rutas específicas, usando radio buttons -->
+        <div class="input-group">
+          <label>Opciones de Ruta:</label>
+          <div>
+            <label>
+              <input type="radio" name="mapOption" value="allRoutes" /> Todas las rutas posibles
+            </label><br />
+            <label>
+              <input type="radio" name="mapOption" value="routesWithoutRestrictions" /> Rutas sin restricciones (Dijkstra)
+            </label><br />
+            <label>
+              <input type="radio" name="mapOption" value="routesWithRestrictions" /> Rutas con restricciones (Dijkstra + simulación)
+            </label><br />
+            <label>
+              <input type="radio" name="mapOption" value="routesWithHormigas" /> Rutas con colonia de hormigas(Metaheurística)
+            </label><br />
+            <!-- <label>
+              <input type="radio" name="mapOption" value="routesWithCPLEX" /> Rutas con modelo de optimizacion (CPLEX)
+            </label><br /> -->
+          </div>
+        </div>
         <button type="button" onclick="enviarDatosInfraestructura()">Ir</button>
       </form>
-
+    
       <div class="iframe-container">
         <iframe src="rutas_alternativas.html"></iframe>
       </div>
+    
+      <!-- Aquí continúa el resto del código existente -->
+    </div>
+    
 
       <div class="section">
         <h2>Metadata</h2>
@@ -356,17 +382,35 @@
 
       async function enviarDatosInfraestructura() {
         const iframe = document.querySelector(".iframe-container iframe");
-        const url = `${BASE_URL}application/grafos/infraestructura/`;
+        const opcion = document.querySelector('input[name="mapOption"]:checked')
+          .value;
+        console.log('opcion seleccionada:', opcion);
+
         const id1 = document.getElementById("selector1").value;
         const id2 = document.getElementById("selector2").value;
-        const data = {
+        let data = {
           puerto_origen: Number(id1),
           puerto_destino: Number(id2),
           restringidos,
         };
         console.log(id1, id2);
-
-        try {
+        let url = `${BASE_URL}application/grafos/infraestructura/`;
+        if (opcion === "allRoutes") {
+          url = `${BASE_URL}application/grafos/infraestructura/`;
+        } else if (opcion === "routesWithoutRestrictions") {
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          data = { puerto_destino: Number(id2), restringidos:[] };
+        } else if (opcion === "routesWithRestrictions") {
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          data = { puerto_destino: Number(id2), restringidos:restringidos };
+        } else if (opcion === "routesWithHormigas") {
+          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+          data = { puerto_destino: Number(id2), restringidos:restringidos };
+        // } else if (opcion === "routesWithCPLEX") {
+        //   url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+        //   data = { puerto_destino: Number(id2), restringidos:restringidos };
+        // }
+        }try {
           const response = await fetch(url, {
             method: "POST",
             headers: {
@@ -385,7 +429,8 @@
           }
 
           const responseData = await response.json();
-          const rutaResultante = `https://marineanalytics.liftlogic.cl/static/${responseData.grafo_url}`;
+          console.log('response:', responseData);
+          const rutaResultante = `${BASE_URL}static/${responseData.grafo_url}`;
 
           // Redirige el iframe a la nueva URL
           iframe.src = rutaResultante;
@@ -428,49 +473,60 @@
           const bahiaInfo = data.bahia;
           const restricciones = data.restricciones;
 
+          // Filtrar restricciones para la bahía específica
           const restriccionesFiltradas = restricciones.filter(
             (restriccion) => restriccion.bahia === parseInt(id_bahia)
           );
 
+          // Calcular la probabilidad de falla
+          const probabilidadFalla = restriccionesFiltradas.length > 0 ? 100 : 0;
+
+          // Si no hay restricciones activas
           if (restriccionesFiltradas.length === 0) {
-            resultadoDiv.innerHTML = `<p>No se encontraron restricciones para la bahía con ID ${id_bahia}.</p>`;
+            resultadoDiv.innerHTML = `
+                <h3>Restricciones para la Bahía: ${bahiaInfo.nombre}</h3>
+                <p>No se encontraron restricciones para la bahía con ID ${id_bahia}.</p>
+                <p><strong>Probabilidad de falla:</strong> ${probabilidadFalla}%</p>`;
             return;
           }
 
+          // Si hay restricciones activas, mostrar los detalles
           let html = `<h3>Restricciones para la Bahía: ${bahiaInfo.nombre}</h3>`;
+          html += `<p><strong>Probabilidad de falla:</strong> ${probabilidadFalla}%</p><hr>`;
+
           restriccionesFiltradas.forEach((restriccion) => {
             html += `
-                        <div class="restriccion">
-                            <p><strong>Inicio:</strong> ${
-                              restriccion.FCinicio || "N/A"
-                            }</p>
-                            <p><strong>Término:</strong> ${
-                              restriccion.FCTermino || "Sin término"
-                            }</p>
-                            <p><strong>Tipo:</strong> ${
-                              restriccion.tipo || "No especificado"
-                            }</p>
-                            <p><strong>Nombre Instalación:</strong> ${
-                              restriccion.NombreInstalacion || "No disponible"
-                            }</p>
-                            <p><strong>Frente Atraque:</strong> ${
-                              restriccion.FrenteAtraque || "No disponible"
-                            }</p>
-                            <p><strong>Observación:</strong> ${
-                              restriccion.Observacion || "No disponible"
-                            }</p>
-                            <p><strong>Motivo Restricción:</strong> ${
-                              restriccion.MotivoRestriccion || "No disponible"
-                            }</p>
-                            <p><strong>Área de Restricción:</strong> ${
-                              restriccion.AreaRestriccion || "No especificada"
-                            }</p>
-                            <p><strong>Tipo Restricción:</strong> ${
-                              restriccion.tiporestriccion || "No disponible"
-                            }</p>
-                        </div>
-                        <hr>
-                    `;
+                <div class="restriccion">
+                    <p><strong>Inicio:</strong> ${
+                      restriccion.FCinicio || "N/A"
+                    }</p>
+                    <p><strong>Término:</strong> ${
+                      restriccion.FCTermino || "Sin término"
+                    }</p>
+                    <p><strong>Tipo:</strong> ${
+                      restriccion.tipo || "No especificado"
+                    }</p>
+                    <p><strong>Nombre Instalación:</strong> ${
+                      restriccion.NombreInstalacion || "No disponible"
+                    }</p>
+                    <p><strong>Frente Atraque:</strong> ${
+                      restriccion.FrenteAtraque || "No disponible"
+                    }</p>
+                    <p><strong>Observación:</strong> ${
+                      restriccion.Observacion || "No disponible"
+                    }</p>
+                    <p><strong>Motivo Restricción:</strong> ${
+                      restriccion.MotivoRestriccion || "No disponible"
+                    }</p>
+                    <p><strong>Área de Restricción:</strong> ${
+                      restriccion.AreaRestriccion || "No especificada"
+                    }</p>
+                    <p><strong>Tipo Restricción:</strong> ${
+                      restriccion.tiporestriccion || "No disponible"
+                    }</p>
+                </div>
+                <hr>
+            `;
           });
 
           resultadoDiv.innerHTML = html;
@@ -728,30 +784,41 @@
           const data = await response.json();
           const climaHoy = data.current;
 
+          // Calcular la probabilidad de falla por lluvia usando los datos horarios
+          const precipTotal = data.hourly.reduce(
+            (total, hora) => total + (hora.rain ? hora.rain["1h"] || 0 : 0),
+            0
+          );
+          const precipMax = Math.min(precipTotal, 150); // Limitar precipitación a un máximo de 150 mm
+          const probabilidadFalla = (precipMax / 150) * 100;
+
           resultadoDiv.innerHTML = `
-                    <h3>Detalles del clima de hoy en el puerto con código: ${codigoPuerto}</h3>
-                    <p><strong>Temperatura actual:</strong> ${
-                      climaHoy.temp || "No disponible"
-                    }°C</p>
-                    <p><strong>Sensación térmica:</strong> ${
-                      climaHoy.feels_like || "No disponible"
-                    }°C</p>
-                    <p><strong>Humedad:</strong> ${
-                      climaHoy.humidity || "No disponible"
-                    }%</p>
-                    <p><strong>Presión atmosférica:</strong> ${
-                      climaHoy.pressure || "No disponible"
-                    } hPa</p>
-                    <p><strong>Velocidad del viento:</strong> ${
-                      climaHoy.wind_speed || "No disponible"
-                    } km/h</p>
-                    <p><strong>Dirección del viento:</strong> ${
-                      climaHoy.wind_deg || "No disponible"
-                    }°</p>
-                    <p><strong>Estado del clima:</strong> ${
-                      climaHoy.weather[0].description || "No disponible"
-                    }</p>
-                `;
+            <h3>Detalles del clima de hoy en el puerto con código: ${codigoPuerto}</h3>
+            <p><strong>Temperatura actual:</strong> ${
+              climaHoy.temp || "No disponible"
+            }°C</p>
+            <p><strong>Sensación térmica:</strong> ${
+              climaHoy.feels_like || "No disponible"
+            }°C</p>
+            <p><strong>Humedad:</strong> ${
+              climaHoy.humidity || "No disponible"
+            }%</p>
+            <p><strong>Presión atmosférica:</strong> ${
+              climaHoy.pressure || "No disponible"
+            } hPa</p>
+            <p><strong>Velocidad del viento:</strong> ${
+              climaHoy.wind_speed || "No disponible"
+            } km/h</p>
+            <p><strong>Dirección del viento:</strong> ${
+              climaHoy.wind_deg || "No disponible"
+            }°</p>
+            <p><strong>Estado del clima:</strong> ${
+              climaHoy.weather[0].description || "No disponible"
+            }</p>
+            <p><strong>Probabilidad de falla por lluvia:</strong> ${
+              probabilidadFalla.toFixed(2) || "No disponible"
+            }%</p>
+        `;
         } catch (error) {
           console.error("Error:", error);
           resultadoDiv.innerHTML = `<p>Error al cargar la información del clima: ${error.message}</p>`;
@@ -789,28 +856,52 @@
             return;
           }
 
+          // Calcular el máximo nivel de oleaje del conjunto de datos
+          const maxWaveHeight = data.reduce(
+            (max, oleaje) => Math.max(max, oleaje.wave_height),
+            0
+          );
+
+          // Calcular la probabilidad de falla basada en el nivel máximo de oleaje
+          let probabilidadFallaOleaje = 0;
+          if (maxWaveHeight >= 1.8) {
+            probabilidadFallaOleaje = 100;
+          } else if (maxWaveHeight >= 1.5) {
+            probabilidadFallaOleaje = ((maxWaveHeight - 1.5) / 0.3) * 100;
+          } else {
+            probabilidadFallaOleaje = 0;
+          }
+
+          // Generar el HTML para mostrar cada registro de oleaje y la probabilidad de falla
           let html = "<h3>Oleaje en el puerto</h3><ul>";
           data.forEach((oleaje) => {
             html += `
-                        <li>
-                            <div class="oleaje-info">
-                                <strong>Hora: ${
-                                  oleaje.hour || "N/A"
-                                } hrs</strong><br/>
-                                Altura de ola: ${
-                                  oleaje.wave_height || "N/A"
-                                } metros<br/>
-                                Dirección de ola: ${
-                                  oleaje.wave_direction || "N/A"
-                                } grados<br/>
-                                Periodo de ola: ${
-                                  oleaje.wave_period || "N/A"
-                                } segundos<br/>
-                            </div>
-                        </li>
-                    `;
+                <li>
+                    <div class="oleaje-info">
+                        <strong>Hora: ${oleaje.hour || "N/A"} hrs</strong><br/>
+                        Altura de ola: ${
+                          oleaje.wave_height || "N/A"
+                        } metros<br/>
+                        Dirección de ola: ${
+                          oleaje.wave_direction || "N/A"
+                        } grados<br/>
+                        Periodo de ola: ${
+                          oleaje.wave_period || "N/A"
+                        } segundos<br/>
+                    </div>
+                </li>
+            `;
           });
-          html += "</ul>";
+          html += `
+            </ul>
+            <h3>Resumen de Probabilidad de Falla</h3>
+            <p><strong>Máximo nivel de oleaje observado:</strong> ${maxWaveHeight.toFixed(
+              2
+            )} m</p>
+            <p><strong>Probabilidad de falla por oleaje:</strong> ${probabilidadFallaOleaje.toFixed(
+              2
+            )}%</p>
+        `;
 
           resultadoDiv.innerHTML = html;
         } catch (error) {
@@ -890,6 +981,33 @@
         } catch (error) {
           console.error("Error:", error);
           resultadoDiv.innerHTML = `<p>Error al cargar la información de sismología: ${error.message}</p>`;
+        }
+      }
+
+      // Función para enviar los datos al servidor
+      async function enviarDatosAlServidor(sismos) {
+        try {
+          const response = await fetch(
+            "https://marineanalytics.liftlogic.cl/application/guardar_probabilidades/",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ sismos }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              `Error al enviar los datos al servidor: ${response.status}`
+            );
+          }
+
+          const result = await response.json();
+          console.log("Archivo generado en el servidor:", result.message);
+        } catch (error) {
+          console.error("Error al enviar los datos al servidor:", error);
         }
       }
 
