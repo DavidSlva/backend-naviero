@@ -189,9 +189,9 @@
             <label>
               <input type="radio" name="mapOption" value="routesWithHormigas" /> Rutas con colonia de hormigas(Metaheurística)
             </label><br />
-            <label>
+            <!-- <label>
               <input type="radio" name="mapOption" value="routesWithCPLEX" /> Rutas con modelo de optimizacion (CPLEX)
-            </label><br />
+            </label><br /> -->
           </div>
         </div>
         <button type="button" onclick="enviarDatosInfraestructura()">Ir</button>
@@ -406,11 +406,11 @@
         } else if (opcion === "routesWithHormigas") {
           url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
           data = { puerto_destino: Number(id2), restringidos:restringidos };
-        } else if (opcion === "routesWithCPLEX") {
-          url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
-          data = { puerto_destino: Number(id2), restringidos:restringidos };
-        }
-        try {
+        // } else if (opcion === "routesWithCPLEX") {
+        //   url = `${BASE_URL}application/grafos/infraestructura/mejores_rutas/${id1}/`;
+        //   data = { puerto_destino: Number(id2), restringidos:restringidos };
+        // }
+        }try {
           const response = await fetch(url, {
             method: "POST",
             headers: {
