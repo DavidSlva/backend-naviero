@@ -1015,7 +1015,7 @@
       async function ObtenerProbabilidades() {
         try {
           const response = await fetch(
-            "http://127.0.0.1:8000/application/guardar_probabilidades/",
+            `${BASE_URL}application/guardar_probabilidades/`,
             {
               method: "GET",
               headers: {
@@ -1064,7 +1064,7 @@
         const opciones = formData.getAll("opciones");
         try {
           let response = await fetch(
-            "http://127.0.0.1:8000/application/Simular/",
+            `${BASE_URL}application/Simular/`,
             {
               method: "POST",
               headers: {

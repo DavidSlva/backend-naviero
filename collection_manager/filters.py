@@ -19,3 +19,5 @@ class PuertoFilter(django_filters.FilterSet):
     class Meta:
         model = Puerto
         fields = ['pais']  # Campos que se pueden filtrar
+
+

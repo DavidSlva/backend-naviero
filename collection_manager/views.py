@@ -19,12 +19,13 @@ from rest_framework import status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 
+
 @api_view(['GET'])
-def cargar_rutas_importantes(request):
+def cargar_rutas_importantes(request) :
     puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
     puertos_importantes = Puerto.objects.filter(important=True)
-    for importante in puertos_importantes:
-        if importante.latitud and importante.longitud:
+    for importante in puertos_importantes :
+        if importante.latitud and importante.longitud :
             rutas, distancias_totales = create_rutas(importante, puertos_chile)
     return Response({"message" : "Rutas actualizadas."}, status=status.HTTP_200_OK)
 
@@ -79,7 +80,7 @@ def cargar_codigos(request) :
                 print(f"Error al cargar país {row['NOMBRE_PAIS']}: {e}")
 
     # 2. Cargar Puertos
-    print("Cargando datos de Puertos...")
+
     puertos_df = pd.read_excel(data, 'Puertos', skiprows=4)
     print(puertos_df)
     for _, row in puertos_df.iterrows() :

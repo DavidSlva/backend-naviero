@@ -1,0 +1,29 @@
+{% extends "admin/change_list.html" %}
+
+{% block before_results %}
+    <div class="admin-stats">
+        <h2>Estadísticas</h2>
+        <p>Total de Registros: {{ total_registros }}</p>
+        <h3>Top 5 Aduanas</h3>
+        <ul>
+            {% for item in aduanas_top %}
+                <li>{{ item.aduana__nombre }}: {{ item.count }}</li>
+            {% endfor %}
+        </ul>
+
+        <h3>Top 5 Tipos de Carga</h3>
+        <ul>
+            {% for item in tipos_carga_top %}
+                <li>{{ item.tipo_carga__nombre }}: {{ item.count }}</li>
+            {% endfor %}
+        </ul>
+
+        <h3>Top 5 Puertos de Embarque</h3>
+        <ul>
+            {% for item in puertos_top %}
+                <li>{{ item.puerto_embarque__nombre }}: {{ item.count }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endblock before_results %}
+

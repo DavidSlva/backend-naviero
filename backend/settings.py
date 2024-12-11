@@ -154,6 +154,8 @@ USE_I18N = True
 
 USE_TZ = True
 
+DOWLOADS_PATH = os.path.join(BASE_DIR, 'downloads')
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

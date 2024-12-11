@@ -523,12 +523,12 @@ class SimularView(APIView):
     def post(self, request):
         # Filtrar los puertos de Chile que son puertos marítimos
         puertos_chile = Puerto.objects.filter(pais__codigo='997', tipo='Puerto marítimo')
-        
-        body_unicode = request.body.decode('utf-8')
-        body_data = json.loads(body_unicode)
+        print(request, puertos_chile)
         opciones_seleccionadas = request.data.get('opciones', [])
 
-        
+        # {
+        #     "opciones" : ["LLUVIA"]
+        # }
         # Lista para almacenar los datos de los puertos
         contenido = []
         
@@ -605,8 +605,9 @@ class SimularView(APIView):
                     if 'SISMO' in opciones_seleccionadas:
                         if random.random() < probabilidadFallaSismo_final/100:
                             puertos_restringidos = puerto.codigo
-
+                    print(probabilidadFallaLluvia, 'prob falla lluvia')
                     if 'LLUVIA' in opciones_seleccionadas:
+                        print("LLUVIA")
                         if random.random() < probabilidadFallaLluvia/100:
                             puertos_restringidos = puerto.codigo
 
@@ -624,5 +625,6 @@ class SimularView(APIView):
                         'Puerto': puerto.nombre,
                         'Error': f"Error al obtener datos: {str(e)}",
                     }
+
         return Response(contenido, status=status.HTTP_200_OK)
 

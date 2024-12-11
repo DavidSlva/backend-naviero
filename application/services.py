@@ -572,9 +572,10 @@ def get_planificacion_san_antonio() :
 #  Función para obtener el clima actual de una ciudad
 def get_current_weather(lat, lon) :
     api_key = os.getenv('OPEN_WEATHER_API_KEY')
-    base_url = "https://api.openweathermap.org/data/3.0/onecall"
+    base_url = "https://api.openweathermap.org/data/2.5/weather"
     url = f"{base_url}?lat={lat}&lon={lon}&appid={api_key}&units=metric"  # Temperaturas en Celsius
     response = requests.get(url)
+    print(response, 'response de weather')
     if response.status_code == 200 :
         return response.json()
     else :
@@ -587,7 +588,7 @@ def get_current_wave(lat, lon) :
 
     # Realizar la solicitud HTTP para obtener los datos
     response = requests.get(url)
-
+    print(response, 'wave')
     # Verifica si la solicitud fue exitosa
     if response.status_code == 200 :
         data = response.json()  # Obtener los datos en formato JSON
