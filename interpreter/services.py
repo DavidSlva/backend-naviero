@@ -70,7 +70,9 @@ def procesar_registros_lote(filas, columnas, puertos, aduanas, tiposCargas, agen
             aduana=aduanas.get(int(registro['ADU']), None),
             tipo_carga=tiposCargas.get(registro['TPO_CARGA'], None),
             nro_manifiesto=registro['NUM_MANIF'],
-            agencia_transporte=agenciasTransporte.get(registro['NUMRUTCIA'], None) or nuevos_ruts.get(registro['NUMRUTCIA'], None)
+            agencia_transporte=agenciasTransporte.get(registro['NUMRUTCIA'], None) or nuevos_ruts.get(registro['NUMRUTCIA'], None),
+            tpo_bul1=registro['TPO_BUL1'],
+            cant_bul1=registro['CANT_BUL1']
         )
         registros.append(nuevo_registro)
         pbar.update(1)

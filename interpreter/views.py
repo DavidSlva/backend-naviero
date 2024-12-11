@@ -11,7 +11,28 @@ from interpreter.serializer import RegistroSerializer
 from interpreter.services import cargar_registros_importacion
 from rest_framework.pagination import PageNumberPagination
 
-
+# class CargarManifiestosView(APIView):
+#     """
+#     View para cargar los manifiestos en general a la base de datos.
+#     """
+#     def get(self, request, format=None):
+#         try:
+#             # Cargar los manifiestos en la base de datos
+#             cargar_manifiestos()
+#
+#             # Retornar un mensaje de éxito
+#             return Response(
+#                 {'status': 'success', 'message': 'Manifiestos cargados correctamente.'},
+#                 status=status.HTTP_200_OK
+#             )
+#
+#         except Exception as e:
+#             # Registrar el error y retornar un mensaje genérico
+#             logger.error(f"Error al cargar los manifiestos: {e}")
+#             return Response(
+#                 {'status': 'error', 'message': 'Error al cargar los manifiestos.'},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
 # Create your views here.
 class CargarRegistrosView(APIView):
     """

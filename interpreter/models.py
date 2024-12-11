@@ -47,6 +47,8 @@ class Registro(models.Model):
     agencia_transporte = models.ForeignKey(AgenciaTransporte, on_delete=models.CASCADE, null=True, related_name='agencia_transporte')
     nave = models.ForeignKey(Nave, on_delete=models.CASCADE, null=True, related_name='nave')
     nro_manifiesto = models.CharField(max_length=255, null=True)
+    tpo_bul1 = models.CharField(max_length=255, null=True)
+    cant_bul1 = models.CharField(max_length=255, null=True)
 
     def __str__(self):
         return f"{self.num_registro}"
