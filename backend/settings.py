@@ -82,6 +82,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.marineanalytics.liftlogic.cl',
     'http://localhost:5173',
     'http://localhost:5174',
+    'https://portvision.pages.dev/'
 ]
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -179,4 +180,5 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:*',
+    'https://portvision.pages.dev'
 ]
