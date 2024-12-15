@@ -79,7 +79,9 @@ MIDDLEWARE = [
 
 CSRF_TRUSTED_ORIGINS = [
     'https://marineanalytics.liftlogic.cl',
-    'https://www.marineanalytics.liftlogic.cl'
+    'https://www.marineanalytics.liftlogic.cl',
+    'http://localhost:5173',
+    'http://localhost:5174',
 ]
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -173,5 +175,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:8000',
     'http://localhost:8001',
-    'http://0.0.0.0:8001'
+    'http://0.0.0.0:8001',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:*',
 ]

@@ -7,6 +7,7 @@ import logging
 from backend import settings
 from collection_manager.models import Aduana, Pais, Puerto, TipoCarga
 from interpreter.models import AgenciaTransporte, Registro
+import pandas as pd
 
 # Configuración del logger de errores
 logging.basicConfig(
@@ -14,6 +15,11 @@ logging.basicConfig(
     level=logging.ERROR,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+PARQUET_PATH = r"C://Users//David//Documents//Github//Proyecto Semestral Grafos y Algoritmos//backend//downloads//exportaciones_2024_combinado_clean_40perc.parquet"
+
+def get_dataframe():
+    return pd.read_parquet(PARQUET_PATH, engine='pyarrow')
 
 def get_importaciones_file_path():
     archivos = os.listdir(settings.DOWLOADS_PATH)

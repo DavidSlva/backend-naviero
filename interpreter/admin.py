@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.db.models import Count
-from interpreter.models import AgenciaTransporte, Registro
+from interpreter.models import AgenciaTransporte, Registro, VolumenTotal, VolumenPorPuerto, VolumenPredicho
 from collection_manager.models import Aduana, Puerto, TipoCarga
 
 
@@ -11,6 +11,14 @@ class AgenciaTransporteAdmin(admin.ModelAdmin) :
     list_filter = ['dig_v']
     ordering = ['nombre']
 
+@admin.register(VolumenTotal)
+class VolumenTotalAdmin(admin.ModelAdmin) :
+    list_display = ['semana', 'volumen_total']
+@admin.register(VolumenPorPuerto)
+class VolumenPorPuertoAdmin(admin.ModelAdmin) :
+    list_filter = ['puerto']
+    search_fields = ['glosapuertoemb', 'semana']
+    list_display = ['glosapuertoemb', 'semana', 'volumen', 'puerto']
 
 @admin.register(Registro)
 class RegistroAdmin(admin.ModelAdmin) :
@@ -77,37 +85,8 @@ class RegistroAdmin(admin.ModelAdmin) :
 
         return response
 
-    # Finalmente, crear una plantilla personalizada para mostrar nuestras estadísticas arriba de la lista
-    # En templates/admin/interpreter/registro/change_list.html (crear si no existe)
-    # Ejemplo minimalista:
-    #
-    # {% extends "admin/change_list.html" %}
-    #
-    # {% block before_results %}
-    # <div class="admin-stats">
-    #   <h2>Estadísticas</h2>
-    #   <p>Total de Registros: {{ total_registros }}</p>
-    #   <h3>Top 5 Aduanas</h3>
-    #   <ul>
-    #   {% for item in aduanas_top %}
-    #       <li>{{ item.aduana__nombre }}: {{ item.count }}</li>
-    #   {% endfor %}
-    #   </ul>
-    #
-    #   <h3>Top 5 Tipos de Carga</h3>
-    #   <ul>
-    #   {% for item in tipos_carga_top %}
-    #       <li>{{ item.tipo_carga__nombre }}: {{ item.count }}</li>
-    #   {% endfor %}
-    #   </ul>
-    #
-    #   <h3>Top 5 Puertos de Embarque</h3>
-    #   <ul>
-    #   {% for item in puertos_top %}
-    #       <li>{{ item.puerto_embarque__nombre }}: {{ item.count }}</li>
-    #   {% endfor %}
-    #   </ul>
-    # </div>
-    # {% endblock before_results %}
-    #
-    # Con esto se mostrará un sencillo panel estadístico en la vista de administrador de Registros.
+
+
+@admin.register(VolumenPredicho)
+class VolumenPredichoAdmin(admin.ModelAdmin) :
+    list_display = ['puerto', 'semana', 'volumen_predicho']

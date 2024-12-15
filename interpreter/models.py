@@ -59,3 +59,38 @@ class Registro(models.Model):
         verbose_name_plural = "Registros Importación/Exportación"
         ordering = ['num_registro', 'puerto_embarque', 'puerto_desembarque']
 
+class VolumenTotal(models.Model):
+    semana = models.DateField(unique=True)  # Fecha de inicio de la semana
+    volumen_total = models.FloatField()
+
+    def __str__(self):
+        return f"Semana: {self.semana} - Volumen Total: {self.volumen_total}"
+
+class VolumenPorPuerto(models.Model):
+    puerto = models.ForeignKey(Puerto, on_delete=models.CASCADE, null=True, related_name='volumen_por_puerto')
+    glosapuertoemb = models.CharField(max_length=255)
+    semana = models.DateField()
+    volumen = models.FloatField()
+
+    class Meta:
+        # unique_together = ('puerto', 'semana')  # Evita duplicados
+        indexes = [
+            models.Index(fields=['puerto']),
+            models.Index(fields=['semana']),
+        ]
+
+    def __str__(self):
+        return f"Puerto: {self.puerto.nombre} - Semana: {self.semana} - Volumen: {self.volumen}"
+
+class VolumenPredicho(models.Model):
+    puerto = models.ForeignKey(Puerto, on_delete=models.CASCADE, related_name='predicciones')
+    semana = models.DateField()
+    volumen_predicho = models.FloatField()
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('puerto', 'semana')  # Evita duplicados para el mismo puerto y semana
+        ordering = ['puerto', 'semana']
+
+    def __str__(self):
+        return f"Predicción para {self.puerto.nombre} en semana {self.semana}: {self.volumen_predicho}"
