@@ -2,9 +2,13 @@
 from rest_framework import serializers
 
 from collection_manager.models import Pais, Puerto, TipoOperacion, Aduana, TipoCarga, ViaTransporte, RegimenImportacion, \
-                     ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Sector
+    ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Sector, Muelle
 import math
 
+class MuelleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Muelle
+        fields = ['nombre', 'extension', 'tipo', 'ubicacion', 'puerto']
 
 class PaisSerializer(serializers.ModelSerializer):
     class Meta:
@@ -12,6 +16,7 @@ class PaisSerializer(serializers.ModelSerializer):
         fields = ['codigo', 'nombre', 'continente']
 
 class PuertoSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Puerto
         fields = ['codigo', 'nombre', 'tipo', 'pais', 'latitud', 'longitud', 'zona_geografica']

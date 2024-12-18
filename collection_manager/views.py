@@ -9,10 +9,11 @@ from collection_manager.filters import SectorFilter, PuertoFilter
 #
 from collection_manager.serializer import PaisSerializer, PuertoSerializer, TipoOperacionSerializer, AduanaSerializer, \
     TipoCargaSerializer, ViaTransporteSerializer, RegimenImportacionSerializer, ModalidadVentaSerializer, \
-    RegionSerializer, UnidadMedidaSerializer, TipoMonedaSerializer, ClausulaSerializer, SectorSerializer
+    RegionSerializer, UnidadMedidaSerializer, TipoMonedaSerializer, ClausulaSerializer, SectorSerializer, \
+    MuelleSerializer
 from collection_manager.models import (Pais, Puerto, TipoOperacion, Aduana, TipoCarga, ViaTransporte,
                                        RegimenImportacion,
-                                       ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Sector)
+                                       ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Sector, Muelle)
 from collection_manager.services import obtener_bahias
 from rest_framework import viewsets
 from rest_framework import status
@@ -324,6 +325,14 @@ class BahiaViewSet(viewsets.ModelViewSet) :
     filter_backends = [DjangoFilterBackend]
     filterset_class = SectorFilter
 
+class MuelleViewSet(viewsets.ModelViewSet) :
+    """
+    ViewSet para manejar las operaciones CRUD (GET, POST, PUT, DELETE) de las muelles.
+    """
+    queryset = Muelle.objects.all()
+    serializer_class = MuelleSerializer
+    filter_backends = [DjangoFilterBackend]
+    # filterset_class = MuelleFilter
 
 @extend_schema(
     tags=['puertos'],
@@ -335,7 +344,7 @@ class PuertoViewSet(viewsets.ModelViewSet) :
     """
     ViewSet para manejar las operaciones CRUD (GET, POST, PUT, DELETE) de los puertos.
     """
-    queryset = Puerto.objects.all()
+    queryset = Puerto.objects.filter(activo=True)
     serializer_class = PuertoSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = PuertoFilter

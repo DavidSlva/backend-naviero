@@ -2,10 +2,16 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 from .models import (
     Pais, Puerto, Sector, TipoOperacion, Aduana, TipoCarga, ViaTransporte, RegimenImportacion,
-    ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Ruta
+    ModalidadVenta, Region, UnidadMedida, TipoMoneda, Clausula, Ruta, Muelle
 )
 
-# Registrar cada modelo en el panel de administración utilizando SimpleHistoryAdmin
+@admin.register(Muelle)
+class MuelleAdmin(SimpleHistoryAdmin):
+    list_display = ['nombre', 'extension', 'tipo', 'ubicacion', 'puerto']
+    search_fields = ['nombre', 'extension', 'tipo', 'ubicacion', 'puerto__nombre']
+    list_filter = ['puerto']
+    autocomplete_fields = ['puerto']
+
 @admin.register(Sector)
 class SectorAdmin(SimpleHistoryAdmin):
     list_display = ['id', 'cd_reparticion', 'nombre', 'sitport_valor', 'sitport_nom']
